@@ -1,26 +1,27 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 const MODEL = 'gemini-2.5-flash';
 
 function getClient() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY não configurada');
-  return new GoogleGenerativeAI(apiKey);
+  return new GoogleGenAI({ apiKey });
 }
 
 export async function generateWithAI(systemPrompt: string, userInput: string) {
-  const genAI = getClient();
-  const model = genAI.getGenerativeModel({ model: MODEL });
+  const ai = getClient();
 
   const prompt = `${systemPrompt}\n\n---\n\nINPUT DO USUÁRIO:\n${userInput}`;
-  const result = await model.generateContent(prompt);
-  const text = result.response.text();
+  const result = await ai.models.generateContent({
+    model: MODEL,
+    contents: prompt,
+  });
 
   return {
-    text,
+    text: result.text ?? '',
     model: MODEL,
-    tokensInput: result.response.usageMetadata?.promptTokenCount || 0,
-    tokensOutput: result.response.usageMetadata?.candidatesTokenCount || 0,
+    tokensInput: result.usageMetadata?.promptTokenCount || 0,
+    tokensOutput: result.usageMetadata?.candidatesTokenCount || 0,
   };
 }
 
