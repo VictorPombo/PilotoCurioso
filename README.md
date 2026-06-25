@@ -1,4 +1,4 @@
-# 🏁 Driver News — Portal Grid Hub
+# 🏁 Piloto Curioso — Portal de Notícias do Automobilismo
 
 ## Setup para Desenvolvedores
 
@@ -8,8 +8,8 @@
 
 ### Primeiro Clone
 ```bash
-git clone https://github.com/VictorPombo/PortalGridHub.git
-cd PortalGridHub
+git clone https://github.com/VictorPombo/PilotoCurioso.git
+cd PilotoCurioso
 npm install
 cp .env.example .env.local
 # Preencha as chaves no .env.local (peça ao admin do projeto)
@@ -29,7 +29,7 @@ npm run dev           # Sobe o servidor limpo
 Veja `.env.example` para a lista completa. As mais críticas:
 
 | Variável | Descrição |
-|----------|-----------|
+|----------|----------|
 | `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Chave pública do Supabase |
 | `GEMINI_API_KEY` | Chave da API Google Gemini (IA) |
@@ -46,6 +46,7 @@ npm run dev
 **"IA não gera textos / erro 404"**
 - Verifique se `GEMINI_API_KEY` está no `.env.local`
 - O modelo atual é `gemini-2.5-flash`
+- SDK: `@google/genai` (novo SDK oficial do Google)
 
 **"Acesso negado / Token não encontrado"**
 - Faça login novamente no painel
