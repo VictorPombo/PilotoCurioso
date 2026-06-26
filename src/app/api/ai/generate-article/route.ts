@@ -5,6 +5,31 @@ function sendSSE(controller: ReadableStreamDefaultController, encoder: TextEncod
   controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
 }
 
+/** Strip markdown code blocks and extract clean JSON */
+function extractJSON(text: string): Record<string, unknown> | null {
+  // Remove markdown code blocks: ```json ... ``` or ``` ... ```
+  let cleaned = text.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+
+  // Try to find a JSON object
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch {
+      // Try fixing common issues: trailing commas, etc.
+      const fixed = jsonMatch[0]
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']');
+      try {
+        return JSON.parse(fixed);
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   const { topics, category } = await req.json();
 
@@ -23,9 +48,7 @@ export async function POST(req: NextRequest) {
       try {
         // ========== STEP 1: REDATOR ==========
         sendSSE(controller, encoder, {
-          step: 1,
-          total: 3,
-          percent: 10,
+          step: 1, total: 3, percent: 10,
           label: '✍️ Redator criando matéria...',
         });
 
@@ -35,87 +58,76 @@ export async function POST(req: NextRequest) {
           { model: 'flash', temperature: 0.8 }
         );
 
+        // Parse draft to pass structured data to editor
+        const draftParsed = extractJSON(draft.text);
+
         sendSSE(controller, encoder, {
-          step: 1,
-          total: 3,
-          percent: 35,
-          label: '✍️ Rascunho pronto!',
+          step: 1, total: 3, percent: 35,
+          label: `✍️ Rascunho pronto! (${draft.model})`,
         });
 
         // ========== STEP 2: EDITOR ==========
         sendSSE(controller, encoder, {
-          step: 2,
-          total: 3,
-          percent: 40,
+          step: 2, total: 3, percent: 40,
           label: '📝 Editor revisando qualidade...',
         });
 
+        const editorInput = draftParsed
+          ? JSON.stringify(draftParsed)
+          : draft.text;
+
         const edited = await generateWithAI(
           AGENT_PROMPTS.editor,
-          draft.text,
+          editorInput,
           { model: 'flash', temperature: 0.4 }
         );
 
+        const editedParsed = extractJSON(edited.text);
+
         sendSSE(controller, encoder, {
-          step: 2,
-          total: 3,
-          percent: 65,
-          label: '📝 Revisão completa!',
+          step: 2, total: 3, percent: 65,
+          label: `📝 Revisão completa! (${edited.model})`,
         });
 
         // ========== STEP 3: SEO OPTIMIZER ==========
         sendSSE(controller, encoder, {
-          step: 3,
-          total: 3,
-          percent: 70,
+          step: 3, total: 3, percent: 70,
           label: '🔍 Otimizando SEO e tags...',
         });
 
+        const seoInput = editedParsed
+          ? JSON.stringify(editedParsed)
+          : edited.text;
+
         const optimized = await generateWithAI(
           AGENT_PROMPTS.seoOptimizer,
-          edited.text,
+          seoInput,
           { model: 'flash', temperature: 0.3 }
         );
 
+        const optimizedParsed = extractJSON(optimized.text);
+
         sendSSE(controller, encoder, {
-          step: 3,
-          total: 3,
-          percent: 90,
-          label: '🔍 SEO otimizado!',
+          step: 3, total: 3, percent: 90,
+          label: `🔍 SEO otimizado! (${optimized.model})`,
         });
 
-        // ========== PARSE FINAL RESULT ==========
-        let result: Record<string, unknown> = {};
-        try {
-          const jsonMatch = optimized.text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            result = JSON.parse(jsonMatch[0]);
-          }
-        } catch {
-          // Fallback: try to parse edited text
-          try {
-            const jsonMatch = edited.text.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              result = JSON.parse(jsonMatch[0]);
-            }
-          } catch {
-            result = {
-              title: 'Matéria Gerada',
-              brief: '',
-              body: optimized.text || edited.text || draft.text,
-            };
-          }
-        }
+        // ========== BUILD FINAL RESULT ==========
+        // Use the best available parsed result, with fallbacks
+        const result = optimizedParsed || editedParsed || draftParsed || {
+          title: 'Matéria Gerada',
+          brief: '',
+          body: optimized.text || edited.text || draft.text,
+        };
 
         // ========== DONE ==========
         sendSSE(controller, encoder, {
-          step: 3,
-          total: 3,
-          percent: 100,
+          step: 3, total: 3, percent: 100,
           label: '✅ Matéria finalizada!',
           result,
           meta: {
             tokensUsed: draft.tokensOutput + edited.tokensOutput + optimized.tokensOutput,
+            modelsUsed: [draft.model, edited.model, optimized.model],
             pipeline: ['redator', 'editor', 'seo'],
           },
         });
