@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, Sparkles, Save, Send, Calendar, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, Sparkles, Save, Send, Calendar, CheckCircle, XCircle, AlertTriangle, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface SSEData {
@@ -46,6 +46,7 @@ export default function NewArticlePage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'warning' | 'error'>('success');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     async function loadCategories() {
@@ -57,6 +58,43 @@ export default function NewArticlePage() {
     }
     loadCategories();
   }, []);
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingImage(true);
+      setMessage('Fazendo upload da imagem...');
+      setMessageType('warning');
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+      const filePath = `covers/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('images')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('images')
+        .getPublicUrl(filePath);
+
+      setCoverImage(publicUrl);
+      setMessage('Upload concluído!');
+      setMessageType('success');
+    } catch (error: any) {
+      console.error('Erro no upload:', error.message);
+      setMessage('Erro ao fazer upload da imagem.');
+      setMessageType('error');
+    } finally {
+      setUploadingImage(false);
+    }
+  }
 
   async function handleAIGenerate() {
     if (!aiTopics.trim()) return;
@@ -300,15 +338,27 @@ export default function NewArticlePage() {
           </div>
           <div>
             <label className="block text-xs text-zinc-500 uppercase tracking-widest mb-2 font-medium">
-              Imagem de capa (URL)
+              Imagem de capa (URL ou Upload)
             </label>
-            <input
-              type="url"
-              value={coverImage}
-              onChange={(e) => setCoverImage(e.target.value)}
-              placeholder="https://..."
-              className="w-full px-4 py-3 rounded-xl bg-surface-2 border border-white/10 text-white text-sm placeholder-zinc-600 outline-none focus:border-brand-red/50"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={coverImage}
+                onChange={(e) => setCoverImage(e.target.value)}
+                placeholder="https://..."
+                className="flex-1 px-4 py-3 rounded-xl bg-surface-2 border border-white/10 text-white text-sm placeholder-zinc-600 outline-none focus:border-brand-red/50"
+              />
+              <label className="cursor-pointer flex items-center justify-center w-12 h-12 rounded-xl bg-surface-3 hover:bg-surface-4 border border-white/10 transition-colors">
+                {uploadingImage ? <Loader2 className="w-4 h-4 animate-spin text-zinc-400" /> : <Upload className="w-4 h-4 text-zinc-400" />}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
         </div>
 
