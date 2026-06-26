@@ -3,7 +3,7 @@ import { jwtVerify } from 'jose';
 
 const getSecret = () =>
   new TextEncoder().encode(
-    process.env.JWT_SECRET || process.env.SUPABASE_JWT_SECRET || 'default-secret'
+    process.env.JWT_SECRET || 'piloto-curioso-secret-change-in-prod'
   );
 
 export async function middleware(request: NextRequest) {
@@ -26,9 +26,12 @@ export async function middleware(request: NextRequest) {
       await jwtVerify(token, getSecret());
       return NextResponse.next();
     } catch {
+      // Token expirado ou inválido — limpar cookie e redirecionar
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = '/admin/login';
-      return NextResponse.redirect(loginUrl);
+      const response = NextResponse.redirect(loginUrl);
+      response.cookies.delete('auth_token');
+      return response;
     }
   }
 
