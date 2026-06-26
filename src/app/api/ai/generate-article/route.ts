@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import { generateWithAI, AI_PROMPTS } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get('auth_token')?.value;
-  if (!token || !(await verifyToken(token))) {
-    return NextResponse.json({ error: 'Não autorizado. Faça login novamente.' }, { status: 401 });
-  }
-
   try {
     const { topics, category } = await req.json();
     if (!topics) {
