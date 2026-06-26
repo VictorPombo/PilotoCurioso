@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Sparkles, Save, Send, Calendar, Eye, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, Sparkles, Save, Send, Calendar, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 
 const EDITORIAS_FALLBACK = [
   { id: '1', name: 'Você Sabia?', slug: 'voce-sabia' },
@@ -12,6 +12,26 @@ const EDITORIAS_FALLBACK = [
   { id: '6', name: 'Análise de Corrida', slug: 'analise' },
   { id: '7', name: 'Parceria', slug: 'parceria' },
 ];
+
+interface SSEData {
+  step?: number;
+  total?: number;
+  percent?: number;
+  label?: string;
+  result?: {
+    title?: string;
+    brief?: string;
+    body?: string;
+    seo_title?: string;
+    seo_description?: string;
+    tags?: string[];
+  };
+  meta?: {
+    tokensUsed?: number;
+    pipeline?: string[];
+  };
+  error?: string;
+}
 
 export default function NewArticlePage() {
   const [title, setTitle] = useState('');
@@ -29,6 +49,8 @@ export default function NewArticlePage() {
 
   const [aiTopics, setAiTopics] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiProgress, setAiProgress] = useState(0);
+  const [aiLabel, setAiLabel] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'warning' | 'error'>('success');
@@ -36,6 +58,8 @@ export default function NewArticlePage() {
   async function handleAIGenerate() {
     if (!aiTopics.trim()) return;
     setAiLoading(true);
+    setAiProgress(0);
+    setAiLabel('Iniciando pipeline...');
     setMessage('');
 
     try {
@@ -45,25 +69,72 @@ export default function NewArticlePage() {
         body: JSON.stringify({ topics: aiTopics, category: categoryId }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.title) setTitle(data.title);
-        if (data.brief) setBrief(data.brief);
-        if (data.body) setBody(data.body);
-        if (data.seo_title) setSeoTitle(data.seo_title);
-        if (data.seo_description) setSeoDescription(data.seo_description);
-        setMessage('Matéria gerada com IA! Revise e publique.');
-        setMessageType('success');
-      } else {
+      if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        setMessage(errData.error || `Erro ${res.status} ao gerar com IA.`);
+        setMessage(errData.error || `Erro ${res.status} ao gerar.`);
         setMessageType('error');
+        setAiLoading(false);
+        setAiProgress(0);
+        setAiLabel('');
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('Stream não disponível');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const data: SSEData = JSON.parse(line.slice(6));
+
+            if (data.percent !== undefined) setAiProgress(data.percent);
+            if (data.label) setAiLabel(data.label);
+
+            if (data.error) {
+              setMessage(data.error);
+              setMessageType('error');
+              setAiLoading(false);
+              setAiProgress(0);
+              setAiLabel('');
+              return;
+            }
+
+            if (data.result) {
+              const r = data.result;
+              if (r.title) setTitle(r.title);
+              if (r.brief) setBrief(r.brief);
+              if (r.body) setBody(r.body);
+              if (r.seo_title) setSeoTitle(r.seo_title);
+              if (r.seo_description) setSeoDescription(r.seo_description);
+              if (r.tags && Array.isArray(r.tags)) setTags(r.tags.join(', '));
+
+              const tokens = data.meta?.tokensUsed || 0;
+              setMessage(`✅ Matéria gerada com pipeline de 3 agentes! (${tokens.toLocaleString()} tokens)`);
+              setMessageType('success');
+            }
+          } catch {
+            // skip malformed JSON
+          }
+        }
       }
     } catch {
       setMessage('Erro de conexão.');
       setMessageType('error');
     } finally {
       setAiLoading(false);
+      setAiProgress(0);
+      setAiLabel('');
     }
   }
 
@@ -124,18 +195,18 @@ export default function NewArticlePage() {
     <div className="max-w-4xl space-y-8">
       <div>
         <h1 className="font-display text-4xl text-white tracking-wide">NOVA MATÉRIA</h1>
-        <p className="text-zinc-500 mt-1">Escreva ou gere com auxílio da IA</p>
+        <p className="text-zinc-500 mt-1">Escreva ou gere com auxílio da IA (pipeline de 3 agentes)</p>
       </div>
 
       {/* AI Assistant */}
       <div className="p-6 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-4">
         <div className="flex items-center gap-2 text-purple-400 font-accent font-bold">
           <Sparkles className="w-5 h-5" />
-          Assistente IA
+          Assistente IA — Pipeline Multi-Agente
         </div>
         <p className="text-sm text-zinc-400">
-          Cole os tópicos, fatos ou notas crus. A IA estrutura a matéria com título, subtítulos,
-          meta description e corpo otimizado para SEO.
+          Cole os tópicos crus. A IA processa em 3 etapas: <strong className="text-purple-300">Redator</strong> →{' '}
+          <strong className="text-purple-300">Editor</strong> → <strong className="text-purple-300">SEO Specialist</strong>
         </p>
         <textarea
           value={aiTopics}
@@ -144,17 +215,39 @@ export default function NewArticlePage() {
           rows={4}
           className="w-full px-4 py-3 rounded-xl bg-surface-2 border border-white/10 text-white placeholder-zinc-600 text-sm outline-none focus:border-purple-500/50 resize-none"
         />
+
+        {/* Progress bar */}
+        {aiLoading && (
+          <div className="space-y-2">
+            <div className="w-full h-2 rounded-full bg-surface-3 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-purple-600 via-purple-500 to-pink-500 transition-all duration-700 ease-out"
+                style={{ width: `${aiProgress}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-purple-300 font-medium">{aiLabel}</span>
+              <span className="text-purple-400 font-mono font-bold">{aiProgress}%</span>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={handleAIGenerate}
           disabled={aiLoading || !aiTopics.trim()}
           className="flex items-center gap-2 px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
         >
           {aiLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>{aiProgress}% — {aiLabel || 'Processando...'}</span>
+            </>
           ) : (
-            <Sparkles className="w-4 h-4" />
+            <>
+              <Sparkles className="w-4 h-4" />
+              Gerar com IA (3 agentes)
+            </>
           )}
-          {aiLoading ? 'Gerando...' : 'Gerar com IA'}
         </button>
       </div>
 
