@@ -1,17 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2, Sparkles, Save, Send, Calendar, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
-
-const EDITORIAS_FALLBACK = [
-  { id: '1', name: 'Você Sabia?', slug: 'voce-sabia' },
-  { id: '2', name: 'Bastidores da F1', slug: 'bastidores' },
-  { id: '3', name: 'Engenharia Explicada', slug: 'engenharia' },
-  { id: '4', name: 'História da F1', slug: 'historia' },
-  { id: '5', name: 'Pilotos e Equipes', slug: 'pilotos-equipes' },
-  { id: '6', name: 'Análise de Corrida', slug: 'analise' },
-  { id: '7', name: 'Parceria', slug: 'parceria' },
-];
+import { supabase } from '@/lib/supabase';
 
 interface SSEData {
   step?: number;
@@ -47,6 +38,7 @@ export default function NewArticlePage() {
   const [tags, setTags] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
 
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [aiTopics, setAiTopics] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiProgress, setAiProgress] = useState(0);
@@ -54,6 +46,17 @@ export default function NewArticlePage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'warning' | 'error'>('success');
+
+  useEffect(() => {
+    async function loadCategories() {
+      const { data } = await supabase
+        .from('categories')
+        .select('id, name')
+        .order('name');
+      if (data) setCategories(data);
+    }
+    loadCategories();
+  }, []);
 
   async function handleAIGenerate() {
     if (!aiTopics.trim()) return;
@@ -277,7 +280,7 @@ export default function NewArticlePage() {
               className="w-full px-4 py-3 rounded-xl bg-surface-2 border border-white/10 text-white text-sm outline-none focus:border-brand-red/50"
             >
               <option value="">Selecione...</option>
-              {EDITORIAS_FALLBACK.map((c) => (
+              {categories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
