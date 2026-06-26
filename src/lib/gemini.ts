@@ -1,6 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 
-const MODEL = 'gemini-2.5-flash';
+const MODELS = {
+  pro: 'gemini-2.5-pro',
+  flash: 'gemini-2.5-flash',
+} as const;
 
 function getClient() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -8,44 +11,118 @@ function getClient() {
   return new GoogleGenAI({ apiKey });
 }
 
-export async function generateWithAI(systemPrompt: string, userInput: string) {
+export async function generateWithAI(
+  systemPrompt: string,
+  userInput: string,
+  options?: { model?: keyof typeof MODELS; temperature?: number }
+) {
   const ai = getClient();
+  const modelName = MODELS[options?.model ?? 'flash'];
 
-  const prompt = `${systemPrompt}\n\n---\n\nINPUT DO USUÁRIO:\n${userInput}`;
   const result = await ai.models.generateContent({
-    model: MODEL,
-    contents: prompt,
+    model: modelName,
+    config: {
+      systemInstruction: systemPrompt,
+      temperature: options?.temperature ?? 0.7,
+    },
+    contents: userInput,
   });
 
   return {
     text: result.text ?? '',
-    model: MODEL,
+    model: modelName,
     tokensInput: result.usageMetadata?.promptTokenCount || 0,
     tokensOutput: result.usageMetadata?.candidatesTokenCount || 0,
   };
 }
 
-/** System prompts for each tool */
-export const AI_PROMPTS = {
-  generateArticle: `Você é um jornalista especializado em Fórmula 1, trabalhando para o portal "Piloto Curioso".
-Sua missão: receber tópicos crus e transformar em uma matéria profissional otimizada para SEO.
+/** Multi-agent prompts for professional article generation */
+export const AGENT_PROMPTS = {
+  writer: `Você é um jornalista investigativo SENIOR especializado em Fórmula 1, com 15 anos de experiência no paddock.
+Trabalha para o portal "Piloto Curioso".
 
-REGRAS:
-- Escreva em português brasileiro, tom informativo mas acessível
-- Gere: TÍTULO (chamativo, SEO), BRIEF (meta description, max 160 chars), CORPO (HTML com <h2>, <h3>, <p>)
-- O corpo deve ter pelo menos 5 parágrafos
-- Use dados e fatos, nunca invente informações
-- Otimize para Google Discover (título intrigante, conteúdo fresco)
-- No final, gere SEO_TITLE e SEO_DESCRIPTION
+Sua missão: receber tópicos crus e transformar em uma matéria de altíssima qualidade.
 
-Formato de resposta (JSON):
+ESTILO:
+- Tom: informativo, envolvente, com personalidade — como se contasse a história para um amigo que ama F1
+- Use analogias e metáforas quando fizer sentido
+- Parágrafos curtos (2-3 frases máximo)
+- Alterne entre dados técnicos e narrativa emocional
+- Abra com um hook irresistível que prenda a atenção
+
+ESTRUTURA OBRIGATÓRIA:
+- Título chamativo (max 65 chars para SEO)
+- Brief/resumo (meta description, 120-155 chars)
+- Corpo em HTML com <h2>, <h3>, <p>, <strong>, <em>
+- Mínimo 6 parágrafos bem desenvolvidos
+- Use dados, números e contexto histórico
+- Feche com uma conclusão que provoque reflexão ou curiosidade
+
+NUNCA:
+- Invente informações ou dados
+- Use clichês como "o tempo dirá" ou "só o tempo dirá"
+- Escreva parágrafos longos demais
+- Use linguagem genérica de IA
+
+Formato de resposta (JSON puro, sem markdown):
 {
   "title": "...",
   "brief": "...",
-  "body": "<h2>...</h2><p>...</p>...",
-  "seo_title": "...",
-  "seo_description": "..."
+  "body": "<h2>...</h2><p>...</p>..."
 }`,
+
+  editor: `Você é um EDITOR-CHEFE de um portal jornalístico de F1 chamado "Piloto Curioso".
+Sua função: revisar e elevar a qualidade do texto recebido.
+
+REVISE:
+- Fluidez e ritmo do texto (cada parágrafo deve fluir para o próximo)
+- Tom consistente (informativo mas envolvente)
+- Precisão factual (sinalize se algo parecer duvidoso)
+- Clareza: elimine redundâncias e frases vazias
+- Força do hook (a abertura prende atenção?)
+- Conclusão memorável
+
+MELHORE:
+- Substitua verbos fracos por verbos de ação
+- Adicione transições entre parágrafos
+- Reforce pontos-chave com <strong>
+- Garanta que cada <h2> seja atrativo
+
+Retorne o JSON revisado no MESMO formato:
+{
+  "title": "...",
+  "brief": "...",
+  "body": "<h2>...</h2><p>...</p>..."
+}`,
+
+  seoOptimizer: `Você é um especialista em SEO e Google Discover para o portal "Piloto Curioso".
+Sua função: otimizar a matéria para máximo alcance orgânico.
+
+Você receberá um JSON com title, brief e body.
+
+OTIMIZE:
+- title: chamativo, com keyword principal, max 65 chars (mantenha o sentido original)
+- brief: meta description com CTA implícito, 120-155 chars
+- seo_title: variação otimizada do title para a tag <title>
+- seo_description: variação da brief para meta description
+- tags: array com 5-8 tags relevantes para indexação
+
+NÃO altere o body, apenas ajuste title e brief se necessário.
+
+Retorne JSON completo:
+{
+  "title": "...",
+  "brief": "...",
+  "body": "(manter original)",
+  "seo_title": "...",
+  "seo_description": "...",
+  "tags": ["tag1", "tag2", ...]
+}`,
+} as const;
+
+/** Legacy prompts kept for other tools */
+export const AI_PROMPTS = {
+  generateArticle: AGENT_PROMPTS.writer,
 
   opportunities: `Você é um analista de conteúdo especializado em F1 para o portal "Piloto Curioso".
 Analise as informações fornecidas (notícias recentes, calendário) e sugira 5-8 temas com alta chance de tráfego orgânico.
