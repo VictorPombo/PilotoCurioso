@@ -52,19 +52,27 @@ async function getArticle(slug: string): Promise<Article | null> {
   return data;
 }
 
-async function getRelatedArticles(categoryId: string | undefined, currentId: string): Promise<Article[]> {
+interface RelatedArticle {
+  id: string;
+  title: string;
+  slug: string;
+  cover_image: string | null;
+  reading_time: number;
+}
+
+async function getRelatedArticles(categoryId: string | undefined, currentId: string): Promise<RelatedArticle[]> {
   if (!categoryId) return [];
   const sb = getClient();
   const { data } = await sb
     .from('articles')
-    .select('id, title, slug, brief, cover_image, reading_time, published_at, category:categories(name)')
+    .select('id, title, slug, cover_image, reading_time')
     .eq('status', 'published')
     .eq('category_id', categoryId)
     .neq('id', currentId)
     .order('published_at', { ascending: false })
     .limit(3);
 
-  return (data as Article[]) || [];
+  return (data as RelatedArticle[]) || [];
 }
 
 export async function generateMetadata({
