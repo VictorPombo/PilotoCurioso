@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
-import { verifyToken } from '@/lib/auth';
 import { slugify, estimateReadingTime } from '@/lib/slugify';
 
 /** GET: List articles with optional filters */
@@ -28,13 +27,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(data);
 }
 
-/** POST: Create new article (admin only) */
+/** POST: Create new article */
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get('auth_token')?.value;
-  if (!token || !(await verifyToken(token))) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-  }
-
   try {
     const body = await req.json();
     const sb = getServiceClient();
