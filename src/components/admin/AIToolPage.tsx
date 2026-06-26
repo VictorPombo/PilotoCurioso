@@ -41,14 +41,18 @@ export function AIToolPage({
       const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(buildPayload(input)),
       });
 
       if (res.ok) {
         const data = await res.json();
         setResult(data);
+      } else if (res.status === 401) {
+        setError('Sessão expirada. Faça login novamente no painel admin.');
       } else {
-        setError('Erro ao processar. Verifique a chave da IA.');
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.error || `Erro ${res.status} ao processar.`);
       }
     } catch {
       setError('Erro de conexão.');
