@@ -55,7 +55,8 @@ export default function NewArticlePage() {
         setMessage('Matéria gerada com IA! Revise e publique.');
         setMessageType('success');
       } else {
-        setMessage('Erro ao gerar com IA. Verifique a chave Gemini.');
+        const errData = await res.json().catch(() => ({}));
+        setMessage(errData.error || `Erro ${res.status} ao gerar com IA.`);
         setMessageType('error');
       }
     } catch {
