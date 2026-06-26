@@ -197,7 +197,7 @@ export default function EditorListPage() {
                 <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                   {article.status === 'published' && (
                     <Link
-                      href={`/${article.slug}`}
+                      href={`/noticias/${article.slug}`}
                       target="_blank"
                       className="p-2 rounded-lg bg-surface-2 text-zinc-400 hover:text-white transition-colors"
                       title="Ver no portal"
