@@ -1,37 +1,142 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { generateWithAI, AI_PROMPTS } from '@/lib/gemini';
+import { NextRequest } from 'next/server';
+import { generateWithAI, AGENT_PROMPTS } from '@/lib/gemini';
+
+function sendSSE(controller: ReadableStreamDefaultController, encoder: TextEncoder, data: Record<string, unknown>) {
+  controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+}
 
 export async function POST(req: NextRequest) {
-  try {
-    const { topics, category } = await req.json();
-    if (!topics) {
-      return NextResponse.json({ error: 'Tópicos são obrigatórios' }, { status: 400 });
-    }
+  const { topics, category } = await req.json();
 
-    const userInput = `Tópicos: ${topics}\nCategoria: ${category || 'geral'}`;
-    const result = await generateWithAI(AI_PROMPTS.generateArticle, userInput);
-
-    // Parse JSON response
-    try {
-      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return NextResponse.json(parsed);
-      }
-    } catch {
-      // If JSON parse fails, return raw text
-    }
-
-    return NextResponse.json({
-      title: 'Matéria Gerada',
-      brief: '',
-      body: result.text,
-      seo_title: '',
-      seo_description: '',
+  if (!topics) {
+    return new Response(JSON.stringify({ error: 'Tópicos são obrigatórios' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
     });
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-    console.error('[AI Generate]', errorMessage);
-    return NextResponse.json({ error: `Erro na IA: ${errorMessage}` }, { status: 500 });
   }
+
+  const userInput = `Tópicos: ${topics}\nCategoria: ${category || 'geral'}`;
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        // ========== STEP 1: REDATOR ==========
+        sendSSE(controller, encoder, {
+          step: 1,
+          total: 3,
+          percent: 10,
+          label: '✍️ Redator criando matéria...',
+        });
+
+        const draft = await generateWithAI(
+          AGENT_PROMPTS.writer,
+          userInput,
+          { model: 'flash', temperature: 0.8 }
+        );
+
+        sendSSE(controller, encoder, {
+          step: 1,
+          total: 3,
+          percent: 35,
+          label: '✍️ Rascunho pronto!',
+        });
+
+        // ========== STEP 2: EDITOR ==========
+        sendSSE(controller, encoder, {
+          step: 2,
+          total: 3,
+          percent: 40,
+          label: '📝 Editor revisando qualidade...',
+        });
+
+        const edited = await generateWithAI(
+          AGENT_PROMPTS.editor,
+          draft.text,
+          { model: 'flash', temperature: 0.4 }
+        );
+
+        sendSSE(controller, encoder, {
+          step: 2,
+          total: 3,
+          percent: 65,
+          label: '📝 Revisão completa!',
+        });
+
+        // ========== STEP 3: SEO OPTIMIZER ==========
+        sendSSE(controller, encoder, {
+          step: 3,
+          total: 3,
+          percent: 70,
+          label: '🔍 Otimizando SEO e tags...',
+        });
+
+        const optimized = await generateWithAI(
+          AGENT_PROMPTS.seoOptimizer,
+          edited.text,
+          { model: 'flash', temperature: 0.3 }
+        );
+
+        sendSSE(controller, encoder, {
+          step: 3,
+          total: 3,
+          percent: 90,
+          label: '🔍 SEO otimizado!',
+        });
+
+        // ========== PARSE FINAL RESULT ==========
+        let result: Record<string, unknown> = {};
+        try {
+          const jsonMatch = optimized.text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            result = JSON.parse(jsonMatch[0]);
+          }
+        } catch {
+          // Fallback: try to parse edited text
+          try {
+            const jsonMatch = edited.text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              result = JSON.parse(jsonMatch[0]);
+            }
+          } catch {
+            result = {
+              title: 'Matéria Gerada',
+              brief: '',
+              body: optimized.text || edited.text || draft.text,
+            };
+          }
+        }
+
+        // ========== DONE ==========
+        sendSSE(controller, encoder, {
+          step: 3,
+          total: 3,
+          percent: 100,
+          label: '✅ Matéria finalizada!',
+          result,
+          meta: {
+            tokensUsed: draft.tokensOutput + edited.tokensOutput + optimized.tokensOutput,
+            pipeline: ['redator', 'editor', 'seo'],
+          },
+        });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+        console.error('[AI Pipeline]', errorMessage);
+        sendSSE(controller, encoder, {
+          error: `Erro na IA: ${errorMessage}`,
+          percent: 0,
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    },
+  });
 }
