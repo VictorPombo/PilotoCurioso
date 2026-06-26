@@ -12,10 +12,23 @@ const MODELS = {
   flash: 'gemini-2.5-flash',
 } as const;
 
+/** Get API key from any of the supported env var names */
+function getApiKey(): string {
+  const key = process.env.GEMINI_API_KEY
+    || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+    || process.env.GOOGLE_API_KEY;
+
+  if (!key) {
+    throw new Error(
+      'Chave Gemini não encontrada. Configure GEMINI_API_KEY ou GOOGLE_GENERATIVE_AI_API_KEY nas variáveis de ambiente.'
+    );
+  }
+
+  return key;
+}
+
 function getClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY não configurada');
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ apiKey: getApiKey() });
 }
 
 /** Try generation with automatic retry and model fallback */
@@ -59,12 +72,24 @@ export async function generateWithAI(
         lastError = err instanceof Error ? err : new Error(String(err));
         const errorMsg = lastError.message;
 
+        // Non-retryable errors: throw immediately
+        const isAuthError = errorMsg.includes('Invalid API key') ||
+                           errorMsg.includes('API_KEY_INVALID') ||
+                           errorMsg.includes('PERMISSION_DENIED');
+
+        if (isAuthError) {
+          throw new Error(
+            `Chave Gemini inválida. Verifique a env var GEMINI_API_KEY no Vercel. ` +
+            `Dica: gere uma nova chave em https://aistudio.google.com/apikey`
+          );
+        }
+
         // Only retry on 503 (overloaded) or 429 (rate limit)
         const isRetryable = errorMsg.includes('503') || errorMsg.includes('UNAVAILABLE') ||
                            errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED');
 
         if (!isRetryable) {
-          throw lastError; // Non-retryable error, throw immediately
+          throw lastError;
         }
 
         console.warn(`[Gemini] ${modelName} falhou (${attempt + 1}/${maxRetries + 1}): ${errorMsg}`);
@@ -109,7 +134,7 @@ NUNCA:
 - Escreva parágrafos longos demais
 - Use linguagem genérica de IA
 
-Formato de resposta (JSON puro, sem markdown):
+Formato de resposta (JSON puro, sem markdown, sem code blocks):
 {
   "title": "...",
   "brief": "...",
@@ -120,20 +145,18 @@ Formato de resposta (JSON puro, sem markdown):
 Sua função: revisar e elevar a qualidade do texto recebido.
 
 REVISE:
-- Fluidez e ritmo do texto (cada parágrafo deve fluir para o próximo)
+- Fluidez e ritmo do texto
 - Tom consistente (informativo mas envolvente)
-- Precisão factual (sinalize se algo parecer duvidoso)
 - Clareza: elimine redundâncias e frases vazias
-- Força do hook (a abertura prende atenção?)
+- Força do hook
 - Conclusão memorável
 
 MELHORE:
 - Substitua verbos fracos por verbos de ação
 - Adicione transições entre parágrafos
 - Reforce pontos-chave com <strong>
-- Garanta que cada <h2> seja atrativo
 
-Retorne o JSON revisado no MESMO formato:
+Retorne o JSON revisado (JSON puro, sem markdown, sem code blocks):
 {
   "title": "...",
   "brief": "...",
@@ -141,20 +164,18 @@ Retorne o JSON revisado no MESMO formato:
 }`,
 
   seoOptimizer: `Você é um especialista em SEO e Google Discover para o portal "Piloto Curioso".
-Sua função: otimizar a matéria para máximo alcance orgânico.
-
-Você receberá um JSON com title, brief e body.
+Otimize a matéria para máximo alcance orgânico.
 
 OTIMIZE:
-- title: chamativo, com keyword principal, max 65 chars (mantenha o sentido original)
-- brief: meta description com CTA implícito, 120-155 chars
-- seo_title: variação otimizada do title para a tag <title>
-- seo_description: variação da brief para meta description
-- tags: array com 5-8 tags relevantes para indexação
+- title: chamativo, max 65 chars
+- brief: meta description, 120-155 chars
+- seo_title: variação otimizada do title
+- seo_description: variação da brief
+- tags: array com 5-8 tags relevantes
 
-NÃO altere o body, apenas ajuste title e brief se necessário.
+NÃO altere o body.
 
-Retorne JSON completo:
+Retorne JSON completo (JSON puro, sem markdown, sem code blocks):
 {
   "title": "...",
   "brief": "...",
@@ -168,95 +189,4 @@ Retorne JSON completo:
 /** Legacy prompts kept for other tools */
 export const AI_PROMPTS = {
   generateArticle: AGENT_PROMPTS.writer,
-
-  opportunities: `Você é um analista de conteúdo especializado em F1 para o portal "Piloto Curioso".
-Analise as informações fornecidas (notícias recentes, calendário) e sugira 5-8 temas com alta chance de tráfego orgânico.
-
-Para cada tema, forneça:
-- Título sugerido
-- Por que é uma oportunidade (trending, SEO gap, evento próximo)
-- Dificuldade estimada (fácil/médio/difícil)
-- Potencial de tráfego (alto/médio/baixo)
-
-Formato: JSON array.`,
-
-  sponsorable: `Você é um consultor de monetização para o portal jornalístico "Piloto Curioso".
-Analise o tema/matéria e identifique oportunidades de monetização via matéria patrocinada.
-
-Responda:
-- Esta matéria pode gerar venda? (sim/não e porquê)
-- Alvos de prospecção (empresas, pilotos, equipes que se beneficiariam)
-- Pitch sugerido (1-2 frases para abordar o cliente)
-- Valor estimado do mercado
-
-Formato: JSON.`,
-
-  interview: `Você é um jornalista sênior de F1 preparando uma entrevista para o portal "Piloto Curioso".
-Gere 20 perguntas inteligentes, divididas em:
-- Técnicas (5): sobre carro, setup, pista, estratégia
-- Carreira (5): trajetória, próximos passos, objetivos
-- Bastidores (5): rotina, preparação, equipe
-- Polêmicas/Curiosas (5): perguntas que geram engajamento
-
-Formato: JSON array com { "category", "question", "follow_up_tip" }.`,
-
-  repurpose: `Você é um estrategista de conteúdo para o portal "Piloto Curioso".
-A partir de uma matéria publicada, gere 5 versões do conteúdo:
-
-1. ROTEIRO YOUTUBE (3-5 min, com intro hook, desenvolvimento e CTA)
-2. ROTEIRO REELS (30-60s, direto ao ponto, texto para narração)
-3. CARROSSEL INSTAGRAM (8-10 slides, texto de cada slide)
-4. POST LINKEDIN (profissional, com hashtags)
-5. THREAD X/TWITTER (5-8 tweets encadeados)
-
-Formato: JSON com cada formato como chave.`,
-
-  viralScore: `Você é um analista de conteúdo viral especializado em F1.
-Analise o título e corpo da matéria e forneça scores estimados:
-
-- viral_score: 0-100 (chance de viralizar)
-- seo_score: 0-100 (otimização para busca)
-- share_score: 0-100 (probabilidade de compartilhamento)
-- reading_time: minutos estimados
-- ctr_estimate: porcentagem estimada de CTR
-- suggestions: array de melhorias
-
-Formato: JSON.`,
-
-  timeline: `Você é um historiador da F1 trabalhando para o portal "Piloto Curioso".
-Sobre o tema fornecido, crie uma timeline detalhada:
-
-- Quando surgiu
-- Marcos importantes (com anos)
-- Mudanças regulamentares
-- Estado atual
-- Curiosidades relacionadas
-
-Formato: JSON array com { "year", "event", "significance" }.`,
-
-  emergingDrivers: `Você é um scout de talentos do automobilismo para o portal "Piloto Curioso".
-Analise o cenário atual de categorias de base (F4, F-Regional, Kart) e identifique pilotos em ascensão.
-
-Para cada piloto:
-- Nome e idade
-- Categoria atual
-- Por que está em destaque
-- Potencial para matéria patrocinada
-- Urgência (publicar antes da concorrência)
-
-Formato: JSON array.`,
-
-  curiosityBank: `Você é um gerador de curiosidades sobre F1 para o portal "Piloto Curioso".
-Gere 10 curiosidades INÉDITAS e surpreendentes sobre a categoria solicitada.
-
-REGRAS:
-- Cada curiosidade deve surpreender um fã casual de F1
-- Deve ser verificável (baseada em fatos reais)
-- Título no formato "pergunta" (ex: "Por que a FIA pesa os pilotos?")
-- Breve descrição (2-3 frases)
-- NUNCA repita curiosidades já usadas (lista fornecida)
-
-Categorias válidas: aerodinâmica, pneus, estratégia, história, acidentes, motores, pilotos, regras, curiosidades gerais
-
-Formato: JSON array com { "title", "description", "category" }.`,
 } as const;
