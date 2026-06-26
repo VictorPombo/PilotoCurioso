@@ -1,5 +1,12 @@
 import { GoogleGenAI } from '@google/genai';
 
+/** Model fallback chain: if primary fails, try next */
+const MODEL_CHAIN = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+] as const;
+
 const MODELS = {
   pro: 'gemini-2.5-pro',
   flash: 'gemini-2.5-flash',
@@ -11,29 +18,67 @@ function getClient() {
   return new GoogleGenAI({ apiKey });
 }
 
+/** Try generation with automatic retry and model fallback */
 export async function generateWithAI(
   systemPrompt: string,
   userInput: string,
-  options?: { model?: keyof typeof MODELS; temperature?: number }
+  options?: { model?: keyof typeof MODELS; temperature?: number; maxRetries?: number }
 ) {
   const ai = getClient();
-  const modelName = MODELS[options?.model ?? 'flash'];
+  const preferredModel = MODELS[options?.model ?? 'flash'];
+  const maxRetries = options?.maxRetries ?? 2;
 
-  const result = await ai.models.generateContent({
-    model: modelName,
-    config: {
-      systemInstruction: systemPrompt,
-      temperature: options?.temperature ?? 0.7,
-    },
-    contents: userInput,
-  });
+  // Build fallback chain starting with preferred model
+  const modelsToTry = [preferredModel, ...MODEL_CHAIN.filter(m => m !== preferredModel)];
 
-  return {
-    text: result.text ?? '',
-    model: modelName,
-    tokensInput: result.usageMetadata?.promptTokenCount || 0,
-    tokensOutput: result.usageMetadata?.candidatesTokenCount || 0,
-  };
+  let lastError: Error | null = null;
+
+  for (const modelName of modelsToTry) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[Gemini] Tentando ${modelName} (tentativa ${attempt + 1})`);
+
+        const result = await ai.models.generateContent({
+          model: modelName,
+          config: {
+            systemInstruction: systemPrompt,
+            temperature: options?.temperature ?? 0.7,
+          },
+          contents: userInput,
+        });
+
+        console.log(`[Gemini] Sucesso com ${modelName}`);
+
+        return {
+          text: result.text ?? '',
+          model: modelName,
+          tokensInput: result.usageMetadata?.promptTokenCount || 0,
+          tokensOutput: result.usageMetadata?.candidatesTokenCount || 0,
+        };
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        const errorMsg = lastError.message;
+
+        // Only retry on 503 (overloaded) or 429 (rate limit)
+        const isRetryable = errorMsg.includes('503') || errorMsg.includes('UNAVAILABLE') ||
+                           errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED');
+
+        if (!isRetryable) {
+          throw lastError; // Non-retryable error, throw immediately
+        }
+
+        console.warn(`[Gemini] ${modelName} falhou (${attempt + 1}/${maxRetries + 1}): ${errorMsg}`);
+
+        // Wait before retry (exponential backoff)
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        }
+      }
+    }
+    console.warn(`[Gemini] ${modelName} esgotou tentativas, tentando próximo modelo...`);
+  }
+
+  throw lastError || new Error('Todos os modelos falharam. Tente novamente em alguns minutos.');
 }
 
 /** Multi-agent prompts for professional article generation */
