@@ -5,7 +5,7 @@ import { generateWithAI, AI_PROMPTS } from '@/lib/gemini';
 export async function POST(req: NextRequest) {
   const token = req.cookies.get('auth_token')?.value;
   if (!token || !(await verifyToken(token))) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    return NextResponse.json({ error: 'Não autorizado. Faça login novamente.' }, { status: 401 });
   }
 
   try {
@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
       seo_description: '',
     });
   } catch (err) {
-    console.error('[AI Generate]', err);
-    return NextResponse.json({ error: 'Erro ao gerar matéria' }, { status: 500 });
+    const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+    console.error('[AI Generate]', errorMessage);
+    return NextResponse.json({ error: `Erro na IA: ${errorMessage}` }, { status: 500 });
   }
 }
