@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 import { slugify, estimateReadingTime } from '@/lib/slugify';
+import { requireAuth, isAuthenticated } from '@/lib/api-auth';
 
-/** GET: List articles with optional filters */
+/** GET: List articles — public gets only published, admin gets all */
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const status = searchParams.get('status');
   const category = searchParams.get('category');
   const search = searchParams.get('q');
   const limit = parseInt(searchParams.get('limit') || '50');
+
+  // Verificar se é admin autenticado
+  const isAdmin = await isAuthenticated(req);
 
   const sb = getServiceClient();
   let query = sb
@@ -17,7 +21,14 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (status) query = query.eq('status', status);
+  if (isAdmin) {
+    // Admin vê tudo, com filtro opcional de status
+    if (status) query = query.eq('status', status);
+  } else {
+    // Público vê apenas publicadas
+    query = query.eq('status', 'published');
+  }
+
   if (category) query = query.eq('category_id', category);
   if (search) query = query.ilike('title', `%${search}%`);
 
@@ -27,8 +38,10 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(data);
 }
 
-/** POST: Create new article */
+/** POST: Create new article (admin only) */
 export async function POST(req: NextRequest) {
+  const authError = await requireAuth(req);
+  if (authError) return authError;
   try {
     const body = await req.json();
     const sb = getServiceClient();
@@ -55,6 +68,10 @@ export async function POST(req: NextRequest) {
       tags: body.tags || null,
       reading_time: readingTime,
       ia_generated: body.ia_generated || false,
+      cta_enabled: body.cta_enabled || false,
+      cta_label: body.cta_label || null,
+      cta_url: body.cta_url || null,
+      cta_video_url: body.cta_video_url || null,
     };
 
     const { data, error } = await sb.from('articles').insert(article).select().single();

@@ -1,7 +1,8 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   PenSquare,
@@ -10,6 +11,7 @@ import {
   DollarSign,
   Sparkles,
   LogOut,
+  Loader2,
 } from 'lucide-react';
 
 const SIDEBAR_ITEMS = [
@@ -23,6 +25,31 @@ const SIDEBAR_ITEMS = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    // Login page não precisa de verificação
+    if (pathname === '/admin/login') {
+      setAuthChecked(true);
+      return;
+    }
+
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) {
+          router.replace('/admin/login');
+          return;
+        }
+        setAuthChecked(true);
+      } catch {
+        router.replace('/admin/login');
+      }
+    }
+
+    checkAuth();
+  }, [pathname, router]);
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -32,6 +59,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // Don't render sidebar on login page
   if (pathname === '/admin/login') {
     return <>{children}</>;
+  }
+
+  // Mostrar loading enquanto verifica auth
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-surface-0 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-zinc-500 animate-spin" />
+      </div>
+    );
   }
 
   return (

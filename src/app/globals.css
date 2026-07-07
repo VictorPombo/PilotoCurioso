@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @theme {
   /* Brand Colors */
@@ -137,4 +138,108 @@ body {
 .article-body img {
   border-radius: 12px;
   margin: 2rem 0;
+}
+
+.article-body video {
+  max-width: 100%;
+  border-radius: 12px;
+  margin: 2rem auto;
+  display: block;
+}
+
+.article-body iframe {
+  max-width: 100%;
+  border-radius: 12px;
+  margin: 2rem auto;
+  display: block;
+  aspect-ratio: 9/16;
+  max-height: 600px;
+}
+
+.article-body strong {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.article-body em {
+  color: var(--color-text-secondary);
+}
+
+.article-body ul, .article-body ol {
+  padding-left: 1.5em;
+  margin-bottom: 1.5em;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.article-body li {
+  margin-bottom: 0.5em;
+  line-height: 1.7;
+}
+
+/* Vídeo vertical no corpo da matéria (9:16) */
+.article-body video[data-vertical="true"] {
+  aspect-ratio: 9/16;
+  max-width: 350px;
+  max-height: 620px;
+  margin: 2rem auto;
+  display: block;
+  border-radius: 16px;
+  box-shadow: 0 4px 30px rgba(232, 0, 45, 0.08);
+}
+
+/* Vídeo horizontal */
+.article-body video[data-vertical="false"] {
+  max-width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 12px;
+  margin: 2rem 0;
+  display: block;
+}
+
+/* Imagens dentro do artigo — centralizadas e responsivas */
+.article-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin: 2rem auto;
+  display: block;
+}
+
+/* Embed Instagram vertical */
+.article-body .instagram-embed {
+  max-width: 400px;
+  margin: 2rem auto;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* Tiptap editor — vídeo vertical no editor */
+.ProseMirror video[data-vertical="true"] {
+  aspect-ratio: 9/16;
+  max-width: 280px;
+  max-height: 500px;
+  margin: 1rem auto;
+  display: block;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.ProseMirror video[data-vertical="false"] {
+  max-width: 100%;
+  border-radius: 12px;
+  margin: 1rem 0;
+}
+
+/* Tiptap editor — imagens no editor */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.5rem 0;
+  cursor: pointer;
+}
+
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--color-brand-red);
+  outline-offset: 2px;
 }

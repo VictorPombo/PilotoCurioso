@@ -29,3 +29,4 @@ next-env.d.ts
 *.py
 *.pdf
 *.png.bak
+.env*

@@ -160,13 +160,11 @@ export const AI_PROMPTS = {
   opportunities: `Você é um analista de conteúdo especializado em F1 para o portal "Piloto Curioso".
 Analise as informações fornecidas e sugira 5-8 temas com alta chance de tráfego orgânico.
 
-Para cada tema, forneça:
-- Título sugerido
-- Por que é uma oportunidade (trending, SEO gap, evento próximo)
-- Dificuldade estimada (fácil/médio/difícil)
-- Potencial de tráfego (alto/médio/baixo)
-
-Formato: JSON array.`,
+Formato OBRIGATÓRIO: JSON array de objetos contendo EXATAMENTE estas chaves em inglês:
+- "title": (string) Título sugerido
+- "reason": (string) Por que é uma oportunidade (trending, SEO gap, evento próximo)
+- "difficulty": (string) "Fácil", "Médio" ou "Difícil"
+- "potential": (string) "Alto", "Médio" ou "Baixo"`,
 
   sponsorable: `Você é um consultor de monetização para o portal jornalístico "Piloto Curioso".
 Analise o tema/matéria e identifique oportunidades de monetização via matéria patrocinada.
@@ -191,13 +189,12 @@ Formato: JSON array com { "category", "question", "follow_up_tip" }.`,
   repurpose: `Você é um estrategista de conteúdo para o portal "Piloto Curioso".
 A partir de uma matéria publicada, gere 5 versões:
 
-1. ROTEIRO YOUTUBE (3-5 min)
-2. ROTEIRO REELS (30-60s)
-3. CARROSSEL INSTAGRAM (8-10 slides)
-4. POST LINKEDIN (com hashtags)
-5. THREAD X/TWITTER (5-8 tweets)
-
-Formato: JSON com cada formato como chave.`,
+Formato OBRIGATÓRIO: JSON contendo EXATAMENTE estas chaves em inglês. O valor de CADA chave DEVE ser apenas uma STRING com o texto final (nunca retorne sub-objetos ou JSON aninhado):
+- "youtube": (string) ROTEIRO YOUTUBE (3-5 min) em texto corrido
+- "reels": (string) ROTEIRO REELS (30-60s) em texto corrido
+- "carrossel": (string) CARROSSEL INSTAGRAM (8-10 slides) em texto corrido
+- "linkedin": (string) POST LINKEDIN (com hashtags) em texto corrido
+- "twitter": (string) THREAD X/TWITTER (5-8 tweets) em texto corrido`,
 
   viralScore: `Você é um analista de conteúdo viral especializado em F1.
 Analise o título e corpo da matéria e forneça scores:
@@ -219,9 +216,13 @@ Formato: JSON array com { "year", "event", "significance" }.`,
   emergingDrivers: `Você é um scout de talentos do automobilismo para o portal "Piloto Curioso".
 Identifique pilotos em ascensão em categorias de base.
 
-Para cada piloto: nome, idade, categoria, destaque, potencial de matéria patrocinada, urgência.
-
-Formato: JSON array.`,
+Formato OBRIGATÓRIO: JSON array de objetos contendo EXATAMENTE estas chaves em inglês:
+- "name": (string) Nome do piloto
+- "age": (number) Idade
+- "category": (string) Categoria atual
+- "highlight": (string) Destaque e histórico
+- "sponsor_potential": (string) Potencial de matéria patrocinada
+- "urgency": (string) APENAS UMA PALAVRA: "Alta", "Média" ou "Baixa"`,
 
   curiosityBank: `Você é um gerador de curiosidades sobre F1 para o portal "Piloto Curioso".
 Gere 10 curiosidades INÉDITAS e surpreendentes. Devem ser verificáveis.

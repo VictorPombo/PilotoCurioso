@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateWithAI, AI_PROMPTS } from '@/lib/gemini';
+import { requireAuth } from '@/lib/api-auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
+  const rateLimited = checkRateLimit(req);
+  if (rateLimited) return rateLimited;
+  const authError = await requireAuth(req);
+  if (authError) return authError;
+
   try {
     const { context } = await req.json();
     const userInput = context || 'Analise as tendências atuais da F1 e sugira oportunidades de conteúdo.';

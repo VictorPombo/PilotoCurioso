@@ -113,7 +113,7 @@ export function InstagramFeed() {
 
       <div className="flex justify-center">
         <a
-          href="https://instagram.com/pilotocurioso"
+          href="https://www.instagram.com/piloto__curioso/"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white font-bold tracking-wide hover:shadow-lg hover:shadow-[#fd1d1d]/20 transition-all hover:-translate-y-0.5"

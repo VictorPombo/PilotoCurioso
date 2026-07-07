@@ -2,7 +2,10 @@ import { SignJWT, jwtVerify } from 'jose';
 import type { JWTPayload } from 'jose';
 
 const getSecret = () => {
-  const secret = process.env.JWT_SECRET || 'piloto-curioso-secret-change-in-prod';
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET não configurada. Defina nas variáveis de ambiente.');
+  }
   return new TextEncoder().encode(secret);
 };
 

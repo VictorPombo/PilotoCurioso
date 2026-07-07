@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, Clock, Eye, ArrowLeft, Tag, Sparkles } from 'lucide-react';
+import { Calendar, Clock, Eye, ArrowLeft, Tag, Sparkles, ExternalLink, Play } from 'lucide-react';
 import { getServiceClient } from '@/lib/supabase';
+import { getCoverImageUrl } from '@/utils/image';
 
 interface Article {
   id: string;
@@ -26,6 +27,10 @@ interface Article {
   published_at: string | null;
   created_at: string;
   category: { id: string; name: string; slug: string } | null;
+  cta_enabled: boolean;
+  cta_label: string | null;
+  cta_url: string | null;
+  cta_video_url: string | null;
 }
 
 interface RelatedArticle {
@@ -107,6 +112,27 @@ function formatDate(dateStr: string) {
   });
 }
 
+/** Extracts YouTube video ID from various URL formats */
+function getYouTubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=)([\w-]+)/,
+    /(?:youtu\.be\/)([\w-]+)/,
+    /(?:youtube\.com\/embed\/)([\w-]+)/,
+    /(?:youtube\.com\/shorts\/)([\w-]+)/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+/** Extracts Instagram Reel ID from URL */
+function getInstagramReelId(url: string): string | null {
+  const match = url.match(/instagram\.com\/(?:reel|p)\/([\w-]+)/);
+  return match ? match[1] : null;
+}
+
 export default async function ArticlePage({
   params,
 }: {
@@ -128,7 +154,7 @@ export default async function ArticlePage({
         <div className="relative w-full max-w-[1400px] mx-auto aspect-[21/9] md:aspect-[21/7] rounded-2xl overflow-hidden mb-10 px-4 lg:px-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={article.cover_image}
+            src={getCoverImageUrl(article.cover_image)}
             alt={article.cover_image_alt || article.title}
             className="w-full h-full object-cover"
           />
@@ -235,6 +261,81 @@ export default async function ArticlePage({
                   {tag}
                 </span>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* CTA Section */}
+        {article.cta_enabled && (article.cta_video_url || (article.cta_label && article.cta_url)) && (
+          <div className="mt-12 pt-8 border-t border-white/10">
+            <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-surface-2 via-surface-1 to-surface-2 border border-white/5 p-6 md:p-8">
+              {/* Video embed */}
+              {article.cta_video_url && (() => {
+                const ytId = getYouTubeId(article.cta_video_url!);
+                const igId = getInstagramReelId(article.cta_video_url!);
+
+                if (ytId) {
+                  return (
+                    <div className="flex justify-center mb-6">
+                      <div className="w-full max-w-[350px] aspect-[9/16] rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${ytId}`}
+                          title="Vídeo da matéria"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="w-full h-full"
+                        />
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (igId) {
+                  return (
+                    <div className="flex justify-center mb-6">
+                      <div className="w-full max-w-[400px] rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
+                        <iframe
+                          src={`https://www.instagram.com/reel/${igId}/embed`}
+                          title="Vídeo Instagram"
+                          allowFullScreen
+                          className="w-full aspect-[9/16]"
+                        />
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Fallback: direct video link
+                return (
+                  <div className="flex justify-center mb-6">
+                    <a
+                      href={article.cta_video_url!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-6 py-4 rounded-xl bg-surface-3 border border-white/10 text-zinc-300 hover:text-white hover:border-white/20 transition-all group"
+                    >
+                      <Play className="w-5 h-5 text-brand-red group-hover:scale-110 transition-transform" />
+                      <span className="font-medium">Assistir vídeo da matéria</span>
+                      <ExternalLink className="w-4 h-4 text-zinc-500" />
+                    </a>
+                  </div>
+                );
+              })()}
+
+              {/* CTA Button */}
+              {article.cta_label && article.cta_url && (
+                <div className="flex justify-center">
+                  <a
+                    href={article.cta_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-brand-red to-brand-red-dark text-white font-bold text-base uppercase tracking-wider hover:shadow-lg hover:shadow-brand-red/20 hover:scale-[1.02] transition-all duration-300"
+                  >
+                    <ExternalLink className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                    {article.cta_label}
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         )}

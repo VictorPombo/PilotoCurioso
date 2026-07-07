@@ -42,6 +42,7 @@ export async function PUT(
       'title', 'slug', 'brief', 'body', 'cover_image', 'cover_image_alt',
       'category_id', 'is_sponsored', 'sponsor_name', 'status', 'scheduled_at',
       'seo_title', 'seo_description', 'og_image', 'tags', 'ia_generated',
+      'cta_enabled', 'cta_label', 'cta_url', 'cta_video_url',
     ];
 
     for (const field of allowedFields) {

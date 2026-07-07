@@ -1,5 +1,8 @@
 import { NextRequest } from 'next/server';
 import { generateWithAI, AGENT_PROMPTS } from '@/lib/gemini';
+import { requireAuth } from '@/lib/api-auth';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { markdownToHtml, isMarkdown } from '@/utils/markdown';
 
 function sendSSE(controller: ReadableStreamDefaultController, encoder: TextEncoder, data: Record<string, unknown>) {
   controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
@@ -31,6 +34,11 @@ function extractJSON(text: string): Record<string, unknown> | null {
 }
 
 export async function POST(req: NextRequest) {
+  const rateLimited = checkRateLimit(req);
+  if (rateLimited) return rateLimited;
+  const authError = await requireAuth(req);
+  if (authError) return authError;
+
   const { topics, category } = await req.json();
 
   if (!topics) {
@@ -119,6 +127,18 @@ export async function POST(req: NextRequest) {
           brief: '',
           body: optimized.text || edited.text || draft.text,
         };
+
+        // Sanitizar markdown no body (IA às vezes retorna ** em vez de <strong>)
+        if (result.body && typeof result.body === 'string') {
+          if (isMarkdown(result.body)) {
+            result.body = markdownToHtml(result.body);
+          } else {
+            // Limpar markdown residual misturado com HTML
+            result.body = result.body
+              .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+              .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+          }
+        }
 
         // ========== DONE ==========
         sendSSE(controller, encoder, {

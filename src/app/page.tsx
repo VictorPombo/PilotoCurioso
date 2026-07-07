@@ -18,6 +18,8 @@ import {
 import { NewsletterForm } from '@/components/ui/NewsletterForm';
 import { InstagramFeed } from '@/components/ui/InstagramFeed';
 import { Camera } from 'lucide-react';
+import { getServiceClient } from '@/lib/supabase';
+import { LatestArticles } from '@/components/ui/LatestArticles';
 
 /* ---------- Editorias estáticas (fallback sem banco) ---------- */
 const EDITORIAS = [
@@ -29,53 +31,17 @@ const EDITORIAS = [
   { name: 'Análise de Corrida', slug: 'analise', icon: BarChart3, color: '#F59E0B' },
 ];
 
-/* ---------- Curiosidades demo (será substituído pelo Supabase) ---------- */
-const CURIOSIDADES_DEMO = [
-  {
-    title: 'Por que os pilotos de F1 são pesados DEPOIS da corrida?',
-    brief: 'A FIA pesa pilotos + carro para garantir que o peso mínimo foi respeitado. Mas o motivo vai além...',
-    slug: 'por-que-pilotos-pesados-depois-corrida',
-    readTime: 2,
-    image: '/images/peso-pilotos.png',
-  },
-  {
-    title: 'O volante de F1 custa mais que um carro popular',
-    brief: 'Com mais de 25 botões e um display integrado, o volante pode custar até R$ 300.000.',
-    slug: 'volante-f1-mais-caro-que-carro',
-    readTime: 3,
-    image: '/images/volante-f1.png',
-  },
-  {
-    title: 'A razão secreta por trás do "halo" que salvou vidas',
-    brief: 'Rejeitado por pilotos no início, o halo já salvou pelo menos 7 vidas desde 2018.',
-    slug: 'halo-f1-salvou-vidas',
-    readTime: 4,
-    image: '/images/halo-f1.png',
-  },
-  {
-    title: 'Por que a F1 não usa pneus que não se desgastam?',
-    brief: 'A Pirelli poderia fazer pneus indestrutíveis, mas a FIA proíbe. Entenda a estratégia por trás.',
-    slug: 'f1-pneus-desgaste-proposital',
-    readTime: 3,
-    image: '/images/pneus-f1.png',
-  },
-  {
-    title: 'Os carros de F1 podem andar de cabeça para baixo?',
-    brief: 'A partir de 150 km/h, a força aerodinâmica é tão grande que o carro poderia rodar pelo teto de um túnel.',
-    slug: 'f1-carros-cabeca-para-baixo',
-    readTime: 2,
-    image: '/images/aerodinamica.png',
-  },
-  {
-    title: 'Quanto combustível um carro de F1 gasta por volta?',
-    brief: 'Cada carro consome cerca de 2,1kg de combustível por volta. Mas há um limite máximo de 110kg por corrida.',
-    slug: 'combustivel-f1-por-volta',
-    readTime: 2,
-    image: '/images/combustivel.png',
-  },
-];
-
-export default function HomePage() {
+export default async function HomePage() {
+  const sb = getServiceClient();
+  const { data: articles, count } = await sb
+    .from('articles')
+    .select('*, category:categories(*)', { count: 'exact' })
+    .eq('status', 'published')
+    .order('created_at', { ascending: false })
+    .limit(6);
+    
+  const initialTotalPages = count ? Math.max(1, Math.ceil(count / 6)) : 1;
+    
   return (
     <main className="flex flex-col">
       {/* ============ HERO ============ */}
@@ -161,8 +127,30 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ============ CURIOSIDADES (DESTAQUE PRINCIPAL) ============ */}
+      <section id="curiosidades" className="pt-24 pb-12 lg:pt-32 lg:pb-16">
+        <div className="max-w-[1400px] w-full mx-auto px-4 lg:px-8">
+          <div className="flex items-end justify-between mb-12">
+            <div>
+              <div className="flex items-center gap-2 text-brand-red text-sm font-bold uppercase tracking-widest mb-3">
+                <Lightbulb className="w-4 h-4" />
+                Destaque
+              </div>
+              <h2 className="font-display text-4xl sm:text-5xl text-white">
+                ÚLTIMAS <span className="text-brand-red">MATÉRIAS</span>
+              </h2>
+              <p className="text-zinc-500 mt-2 max-w-lg">
+                Fique por dentro das últimas novidades, curiosidades e análises exclusivas do mundo da Fórmula 1.
+              </p>
+            </div>
+          </div>
+
+          <LatestArticles initialArticles={articles || []} initialTotalPages={initialTotalPages} />
+        </div>
+      </section>
+
       {/* ============ INSTAGRAM FEED ============ */}
-      <section className="pt-24 lg:pt-32 pb-12 bg-surface-0">
+      <section className="pt-12 lg:pt-16 pb-12 bg-surface-0">
         <div className="max-w-[1400px] w-full mx-auto px-4 lg:px-8">
           <div className="flex items-end justify-between mb-10">
             <div>
@@ -179,61 +167,6 @@ export default function HomePage() {
             </div>
           </div>
           <InstagramFeed />
-        </div>
-      </section>
-
-      {/* ============ CURIOSIDADES (DESTAQUE PRINCIPAL) ============ */}
-      <section id="curiosidades" className="pt-24 pb-12 lg:pt-32 lg:pb-16">
-        <div className="max-w-[1400px] w-full mx-auto px-4 lg:px-8">
-          <div className="flex items-end justify-between mb-12">
-            <div>
-              <div className="flex items-center gap-2 text-brand-red text-sm font-bold uppercase tracking-widest mb-3">
-                <Lightbulb className="w-4 h-4" />
-                Destaque
-              </div>
-              <h2 className="font-display text-4xl sm:text-5xl text-white">
-                VOCÊ SABIA<span className="text-brand-red">?</span>
-              </h2>
-              <p className="text-zinc-500 mt-2 max-w-lg">
-                Curiosidades rápidas sobre F1 para você aprender algo novo em 30 segundos.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {CURIOSIDADES_DEMO.map((item, i) => (
-              <Link
-                key={item.slug}
-                href={`/f1/${item.slug}`}
-                className="group relative flex flex-col overflow-hidden rounded-2xl bg-surface-card border border-white/5 hover:border-brand-red/30 transition-all duration-300 hover:shadow-xl hover:shadow-brand-red/5 hover:-translate-y-1"
-                style={{ animationDelay: `${i * 0.05}s` }}
-              >
-                <div className="relative aspect-[16/10] bg-gradient-to-br from-surface-3 to-surface-2 overflow-hidden">
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-surface-card via-transparent to-transparent" />
-                  <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-brand-red/90 backdrop-blur-sm text-white text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
-                    <Lightbulb className="w-3 h-3" /> Você Sabia?
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 p-5 flex-1">
-                  <h3 className="font-accent text-lg font-bold leading-tight text-white group-hover:text-brand-red transition-colors line-clamp-3">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-zinc-500 leading-relaxed line-clamp-2">
-                    {item.brief}
-                  </p>
-                  <div className="mt-auto pt-3 flex items-center justify-between text-xs text-zinc-600">
-                    <span>{item.readTime} min de leitura</span>
-                    <ChevronRight className="w-4 h-4 text-brand-red opacity-0 group-hover:opacity-100 transition" />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
         </div>
       </section>
 

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Loader2, Sparkles, Save, Send, Calendar, CheckCircle, XCircle, AlertTriangle, Upload, Link2, ExternalLink, Play } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { AIAssistantPanel } from '@/components/admin/AIAssistantPanel';
 
 interface SSEData {
   step?: number;
@@ -25,8 +27,13 @@ interface SSEData {
   error?: string;
 }
 
-export default function NewArticlePage() {
+export default function EditArticlePage({ params }: { params: { id: string } }) {
+  const { id } = params;
+  const router = useRouter();
+  
   const [title, setTitle] = useState('');
+  const [slug, setSlug] = useState('');
+  const [status, setStatus] = useState('');
   const [brief, setBrief] = useState('');
   const [body, setBody] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -57,14 +64,42 @@ export default function NewArticlePage() {
 
   useEffect(() => {
     async function loadCategories() {
-      const { data } = await supabase
-        .from('categories')
-        .select('id, name')
-        .order('name');
+      const { data } = await supabase.from('categories').select('*').order('name');
       if (data) setCategories(data);
     }
+    
+    async function loadArticle() {
+      try {
+        const res = await fetch(`/api/articles/${id}`, { credentials: 'include' });
+        if (!res.ok) throw new Error(`Erro ${res.status} ao carregar matéria`);
+        const data = await res.json();
+
+        if (data) {
+          setTitle(data.title || '');
+          setSlug(data.slug || '');
+          setCategoryId(data.category_id || '');
+          setBrief(data.brief || '');
+          setBody(data.body || '');
+          setCoverImage(data.cover_image || '');
+          setStatus(data.status || 'draft');
+          setSeoTitle(data.seo_title || '');
+          setSeoDescription(data.seo_description || '');
+          setTags(data.tags?.join(', ') || '');
+          setCtaEnabled(data.cta_enabled || false);
+          setCtaLabel(data.cta_label || '');
+          setCtaUrl(data.cta_url || '');
+          setCtaVideoUrl(data.cta_video_url || '');
+        }
+      } catch (error) {
+        console.error('Error loading article:', error);
+        setMessage('Erro ao carregar matéria.');
+        setMessageType('error');
+      }
+    }
+
     loadCategories();
-  }, []);
+    loadArticle();
+  }, [id]);
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -186,7 +221,7 @@ export default function NewArticlePage() {
     }
   }
 
-  async function handleSave(status: 'draft' | 'published' | 'scheduled') {
+  async function handleSave(statusInput: 'draft' | 'published' | 'scheduled') {
     if (!title.trim()) {
       setMessage('Título é obrigatório.');
       setMessageType('warning');
@@ -196,59 +231,79 @@ export default function NewArticlePage() {
     setMessage('');
 
     try {
-      const res = await fetch('/api/articles', {
-        method: 'POST',
+      const tagsArray = tags.split(',').map((t) => t.trim()).filter(Boolean);
+      const res = await fetch(`/api/articles/${id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          title,
-          brief,
-          body,
-          type,
+          title: title.trim(),
+          slug: slug.trim(),
           category_id: categoryId || null,
-          cover_image: coverImage || null,
-          is_sponsored: isSponsored,
-          sponsor_name: isSponsored ? sponsorName : null,
-          seo_title: seoTitle || null,
-          seo_description: seoDescription || null,
-          tags: tags ? tags.split(',').map((t) => t.trim()) : null,
-          status: status === 'scheduled' ? 'scheduled' : status,
-          scheduled_at: status === 'scheduled' ? scheduledAt : null,
+          brief: brief.trim(),
+          body: body.trim(),
+          cover_image: coverImage.trim() || null,
+          status: statusInput,
+          seo_title: seoTitle.trim() || null,
+          seo_description: seoDescription.trim() || null,
+          tags: tagsArray.length > 0 ? tagsArray : null,
           ia_generated: aiTopics.length > 0,
           cta_enabled: ctaEnabled,
-          cta_label: ctaLabel || null,
-          cta_url: ctaUrl || null,
-          cta_video_url: ctaVideoUrl || null,
+          cta_label: ctaLabel.trim() || null,
+          cta_url: ctaUrl.trim() || null,
+          cta_video_url: ctaVideoUrl.trim() || null,
         }),
       });
 
-      if (res.ok) {
-        setMessage(
-          status === 'published'
-            ? 'Matéria publicada!'
-            : status === 'scheduled'
-            ? 'Matéria agendada!'
-            : 'Rascunho salvo!'
-        );
-        setMessageType('success');
-      } else {
-        const err = await res.json();
-        setMessage(err.error || 'Erro ao salvar.');
-        setMessageType('error');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Erro ${res.status} ao salvar.`);
       }
-    } catch {
-      setMessage('Erro de conexão.');
+
+      setMessage(statusInput === 'published' ? 'Matéria publicada!' : 'Rascunho salvo!');
+      setMessageType('success');
+      
+      setTimeout(() => {
+        router.push('/admin/editor');
+      }, 1500);
+    } catch (e: any) {
+      setMessage(e.message || 'Erro ao salvar.');
       setMessageType('error');
     } finally {
       setSaving(false);
     }
   }
 
+  const handleApplyRefine = useCallback((data: {
+    title: string;
+    brief: string;
+    body: string;
+    seo_title: string;
+    seo_description: string;
+    tags: string[];
+  }) => {
+    if (data.title) setTitle(data.title);
+    if (data.brief) setBrief(data.brief);
+    if (data.body) setBody(data.body);
+    if (data.seo_title) setSeoTitle(data.seo_title);
+    if (data.seo_description) setSeoDescription(data.seo_description);
+    if (data.tags?.length) setTags(data.tags.join(', '));
+    setMessage('Refinamento aplicado!');
+    setMessageType('success');
+  }, []);
+
+  const handleInsertInfographic = useCallback((url: string) => {
+    setBody(prev => prev + `<img src="${url}" alt="Infográfico" style="max-width:100%;border-radius:12px;margin:1.5rem 0" />`);
+    setMessage('Infográfico inserido no corpo!');
+    setMessageType('success');
+  }, []);
+
   return (
     <div className="max-w-4xl space-y-8">
-      <div>
-        <h1 className="font-display text-4xl text-white tracking-wide">NOVA MATÉRIA</h1>
-        <p className="text-zinc-500 mt-1">Escreva ou gere com auxílio da IA (pipeline de 3 agentes)</p>
-      </div>
+        <div>
+          <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">Editar Matéria</h1>
+          <p className="text-sm text-zinc-400">Atualize os dados e publique as mudanças</p>
+        </div>
 
       {/* AI Assistant */}
       <div className="p-6 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-4">
@@ -392,6 +447,16 @@ export default function NewArticlePage() {
           </label>
           <RichTextEditor value={body} onChange={setBody} />
         </div>
+
+        {/* AI Assistant Panel */}
+        <AIAssistantPanel
+          articleId={id}
+          title={title}
+          brief={brief}
+          body={body}
+          onApplyRefine={handleApplyRefine}
+          onInsertImage={handleInsertInfographic}
+        />
 
         {/* Sponsored toggle */}
         <div className="flex items-center gap-4 p-4 rounded-xl bg-surface-2 border border-white/10">
