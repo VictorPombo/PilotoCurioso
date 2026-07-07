@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Loader2, Sparkles, Save, Send, Calendar, CheckCircle, XCircle, AlertTriangle, Upload, Link2, ExternalLink, Play } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
@@ -27,8 +27,8 @@ interface SSEData {
   error?: string;
 }
 
-export default function EditArticlePage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function EditArticlePage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
   
   const [title, setTitle] = useState('');
