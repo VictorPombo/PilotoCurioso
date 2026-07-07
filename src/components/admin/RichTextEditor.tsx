@@ -60,9 +60,8 @@ const MenuBar = ({ editor }: { editor: any }) => {
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
 
-  if (!editor) return null;
-
   const setLink = useCallback(() => {
+    if (!editor) return;
     const previousUrl = editor.getAttributes('link').href;
     const url = window.prompt('URL do link', previousUrl);
 
@@ -77,6 +76,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
   }, [editor]);
 
   const addImageByUrl = useCallback(() => {
+    if (!editor) return;
     const url = window.prompt('URL da Imagem');
     if (url) {
       editor.chain().focus().setImage({ src: url }).run();
@@ -86,7 +86,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
   const handleImageUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file) return;
+      if (!file || !editor) return;
 
       try {
         setUploadingImage(true);
@@ -108,6 +108,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
 
   const addVideoByUrl = useCallback(
     (vertical: boolean) => {
+      if (!editor) return;
       const url = window.prompt('URL do vídeo (MP4 ou link direto)');
       if (url) {
         editor.chain().focus().setVideo({ src: url, vertical }).run();
@@ -119,7 +120,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
   const handleVideoUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>, vertical: boolean) => {
       const file = e.target.files?.[0];
-      if (!file) return;
+      if (!file || !editor) return;
 
       try {
         setUploadingVideo(true);
@@ -145,6 +146,8 @@ const MenuBar = ({ editor }: { editor: any }) => {
         ? 'bg-brand-red text-white'
         : 'text-zinc-400 hover:bg-surface-3 hover:text-white'
     }`;
+
+  if (!editor) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-1 p-2 border-b border-white/10 bg-surface-2 rounded-t-xl">
