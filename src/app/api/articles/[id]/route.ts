@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 import { verifyToken } from '@/lib/auth';
 import { estimateReadingTime } from '@/lib/slugify';
+import { cleanImageUrl } from '@/utils/image';
 
 /** GET: Get single article by ID */
 export async function GET(
@@ -49,12 +50,19 @@ export async function PUT(
       if (body[field] !== undefined) update[field] = body[field];
     }
 
+    if (update.cover_image !== undefined) {
+      update.cover_image = cleanImageUrl(update.cover_image as string) || '/images/news-placeholder.png';
+    }
+
     // Auto-calculate reading time
     if (body.body) update.reading_time = estimateReadingTime(body.body);
 
     // Set published_at when publishing
     if (body.status === 'published') {
       update.published_at = new Date().toISOString();
+      if (!update.cover_image) {
+        update.cover_image = '/images/news-placeholder.png';
+      }
     }
 
     const { data, error } = await sb

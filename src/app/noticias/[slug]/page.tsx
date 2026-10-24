@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Calendar, Clock, Eye, ArrowLeft, Tag, Sparkles, ExternalLink, Play } from 'lucide-react';
 import { getServiceClient } from '@/lib/supabase';
-import { getCoverImageUrl } from '@/utils/image';
+import { getCoverImageUrl, getSmartCoverImage } from '@/utils/image';
 
 interface Article {
   id: string;
@@ -150,17 +150,19 @@ export default async function ArticlePage({
   return (
     <main className="min-h-screen bg-surface-0 pt-[100px] pb-20">
       {/* Hero / Cover */}
-      {article.cover_image && (
-        <div className="relative w-full max-w-[1400px] mx-auto aspect-[21/9] md:aspect-[21/7] rounded-2xl overflow-hidden mb-10 px-4 lg:px-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={getCoverImageUrl(article.cover_image)}
-            alt={article.cover_image_alt || article.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-        </div>
-      )}
+      <div className="relative w-full max-w-[1400px] mx-auto aspect-[21/9] md:aspect-[21/7] rounded-2xl overflow-hidden mb-10 px-4 lg:px-0 bg-surface-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={getSmartCoverImage(article.title, article.cover_image)}
+          alt={article.cover_image_alt || article.title}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '/images/news-placeholder.png';
+          }}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+      </div>
 
       <div className="max-w-[800px] w-full mx-auto px-4 lg:px-0">
         {/* Breadcrumb */}
@@ -353,16 +355,18 @@ export default async function ArticlePage({
                   href={`/noticias/${r.slug}`}
                   className="group flex flex-col bg-surface-1 border border-white/5 rounded-xl overflow-hidden hover:border-white/15 transition-all"
                 >
-                  {r.cover_image && (
-                    <div className="aspect-[16/9] overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={r.cover_image}
-                        alt={r.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    </div>
-                  )}
+                  <div className="aspect-[16/9] overflow-hidden bg-surface-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={getSmartCoverImage(r.title, r.cover_image)}
+                      alt={r.title}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = '/images/news-placeholder.png';
+                      }}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
                   <div className="p-4 flex-1">
                     <h3 className="font-accent text-lg font-bold text-white leading-snug group-hover:text-brand-red transition-colors">
                       {r.title}

@@ -6,6 +6,7 @@ import { Loader2, Sparkles, Save, Send, Calendar, CheckCircle, XCircle, AlertTri
 import { supabase } from '@/lib/supabase';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { AIAssistantPanel } from '@/components/admin/AIAssistantPanel';
+import { compressImage } from '@/utils/image';
 
 interface SSEData {
   step?: number;
@@ -107,16 +108,19 @@ export default function EditArticlePage() {
 
     try {
       setUploadingImage(true);
-      setMessage('Fazendo upload da imagem...');
+      setMessage('Otimizando e fazendo upload da imagem...');
       setMessageType('warning');
 
-      const fileExt = file.name.split('.').pop();
+      // Otimiza e comprime a imagem antes de fazer upload
+      const fileToUpload = await compressImage(file);
+
+      const fileExt = fileToUpload.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
       const filePath = `covers/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('images')
-        .upload(filePath, file);
+        .upload(filePath, fileToUpload, { upsert: true });
 
       if (uploadError) {
         throw uploadError;
@@ -127,11 +131,11 @@ export default function EditArticlePage() {
         .getPublicUrl(filePath);
 
       setCoverImage(publicUrl);
-      setMessage('Upload concluído!');
+      setMessage('Upload concluído com sucesso!');
       setMessageType('success');
     } catch (error: any) {
-      console.error('Erro no upload:', error.message);
-      setMessage('Erro ao fazer upload da imagem.');
+      console.error('Erro no upload:', error);
+      setMessage(`Erro no upload: ${error.message || 'Falha ao salvar a imagem.'}`);
       setMessageType('error');
     } finally {
       setUploadingImage(false);
@@ -242,7 +246,7 @@ export default function EditArticlePage() {
           category_id: categoryId || null,
           brief: brief.trim(),
           body: body.trim(),
-          cover_image: coverImage.trim() || null,
+          cover_image: coverImage.trim() || '/images/news-placeholder.png',
           status: statusInput,
           seo_title: seoTitle.trim() || null,
           seo_description: seoDescription.trim() || null,

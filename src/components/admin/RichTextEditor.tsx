@@ -6,6 +6,7 @@ import TiptapLink from '@tiptap/extension-link';
 import TiptapImage from '@tiptap/extension-image';
 import { Video } from '@/lib/tiptap/Video';
 import { supabase } from '@/lib/supabase';
+import { compressImage } from '@/utils/image';
 import {
   Bold,
   Italic,
@@ -36,13 +37,14 @@ async function uploadToStorage(
   file: File,
   bucket: 'images' | 'videos'
 ): Promise<string> {
-  const fileExt = file.name.split('.').pop();
+  const fileToUpload = bucket === 'images' ? await compressImage(file) : file;
+  const fileExt = fileToUpload.name.split('.').pop();
   const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
   const filePath = `articles/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
     .from(bucket)
-    .upload(filePath, file);
+    .upload(filePath, fileToUpload, { upsert: true });
 
   if (uploadError) throw uploadError;
 

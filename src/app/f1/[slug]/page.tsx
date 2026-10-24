@@ -6,6 +6,7 @@ import { ShareButtons } from '@/components/article/ShareButtons';
 import { SponsoredBadge } from '@/components/article/SponsoredBadge';
 import { EnzoSignature } from '@/components/article/EnzoSignature';
 import { CategoryBadge } from '@/components/ui/CategoryBadge';
+import { getSmartCoverImage } from '@/utils/image';
 import type { Article, Category } from '@/types';
 
 interface PageProps {
@@ -142,17 +143,19 @@ export default async function ArticlePage({ params }: PageProps) {
           </header>
 
           {/* Cover image */}
-          {article.cover_image && (
-            <figure className="relative rounded-2xl overflow-hidden mb-12 shadow-2xl shadow-black/50">
-              <img
-                src={article.cover_image}
-                alt={article.cover_image_alt || article.title}
-                className="w-full aspect-video object-cover"
-                loading="eager"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-surface-1/50 to-transparent pointer-events-none" />
-            </figure>
-          )}
+          <figure className="relative rounded-2xl overflow-hidden mb-12 shadow-2xl shadow-black/50 bg-surface-3">
+            <img
+              src={getSmartCoverImage(article.title, article.cover_image)}
+              alt={article.cover_image_alt || article.title}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/images/news-placeholder.png';
+              }}
+              className="w-full aspect-video object-cover"
+              loading="eager"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-surface-1/50 to-transparent pointer-events-none" />
+          </figure>
 
           {/* Body */}
           <div

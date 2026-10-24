@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Loader2, Sparkles, Save, Send, Calendar, CheckCircle, XCircle, AlertTriangle, Upload, Link2, ExternalLink, Play } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { compressImage } from '@/utils/image';
 
 interface SSEData {
   step?: number;
@@ -72,16 +73,19 @@ export default function NewArticlePage() {
 
     try {
       setUploadingImage(true);
-      setMessage('Fazendo upload da imagem...');
+      setMessage('Otimizando e fazendo upload da imagem...');
       setMessageType('warning');
 
-      const fileExt = file.name.split('.').pop();
+      // Otimiza e comprime a imagem antes do upload
+      const fileToUpload = await compressImage(file);
+
+      const fileExt = fileToUpload.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
       const filePath = `covers/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('images')
-        .upload(filePath, file);
+        .upload(filePath, fileToUpload, { upsert: true });
 
       if (uploadError) {
         throw uploadError;
@@ -92,11 +96,11 @@ export default function NewArticlePage() {
         .getPublicUrl(filePath);
 
       setCoverImage(publicUrl);
-      setMessage('Upload concluído!');
+      setMessage('Upload concluído com sucesso!');
       setMessageType('success');
     } catch (error: any) {
-      console.error('Erro no upload:', error.message);
-      setMessage('Erro ao fazer upload da imagem.');
+      console.error('Erro no upload:', error);
+      setMessage(`Erro no upload: ${error.message || 'Falha ao salvar a imagem.'}`);
       setMessageType('error');
     } finally {
       setUploadingImage(false);
@@ -205,7 +209,7 @@ export default function NewArticlePage() {
           body,
           type,
           category_id: categoryId || null,
-          cover_image: coverImage || null,
+          cover_image: coverImage.trim() || '/images/news-placeholder.png',
           is_sponsored: isSponsored,
           sponsor_name: isSponsored ? sponsorName : null,
           seo_title: seoTitle || null,

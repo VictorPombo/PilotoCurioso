@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Lightbulb, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { getCoverImageUrl } from '@/utils/image';
+import { getCoverImageUrl, getSmartCoverImage } from '@/utils/image';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -64,9 +64,10 @@ export function LatestArticles({ initialArticles, initialTotalPages }: LatestArt
           >
             <div className="relative aspect-[16/10] bg-gradient-to-br from-surface-3 to-surface-2 overflow-hidden">
               <img
-                src={getCoverImageUrl(item.cover_image)}
+                src={getSmartCoverImage(item.title, item.cover_image)}
                 alt={item.title}
                 onError={(e) => {
+                  e.currentTarget.onerror = null;
                   e.currentTarget.src = '/images/news-placeholder.png';
                 }}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

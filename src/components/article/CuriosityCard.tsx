@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Lightbulb } from 'lucide-react';
 import type { Article } from '@/types';
 import { formatDateShort, truncate, estimateReadingTime } from '@/lib/slugify';
+import { getSmartCoverImage } from '@/utils/image';
 
 interface CuriosityCardProps {
   article: Article;
@@ -9,6 +10,7 @@ interface CuriosityCardProps {
 
 export function CuriosityCard({ article }: CuriosityCardProps) {
   const readTime = article.reading_time || estimateReadingTime(article.body || '');
+  const coverUrl = getSmartCoverImage(article.title, article.cover_image);
 
   return (
     <Link
@@ -16,20 +18,22 @@ export function CuriosityCard({ article }: CuriosityCardProps) {
       className="group relative flex flex-col overflow-hidden rounded-2xl bg-surface-card border border-white/5 hover:border-brand-red/30 transition-all duration-300 hover:shadow-xl hover:shadow-brand-red/5 hover:-translate-y-1"
     >
       {/* Image */}
-      {article.cover_image && (
-        <div className="relative aspect-[16/10] overflow-hidden">
-          <img
-            src={article.cover_image}
-            alt={article.cover_image_alt || article.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-surface-card via-transparent to-transparent" />
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-brand-red/90 backdrop-blur-sm text-white text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
-                    <Lightbulb className="w-3 h-3" /> Você Sabia?
-          </div>
+      <div className="relative aspect-[16/10] overflow-hidden bg-surface-3">
+        <img
+          src={coverUrl}
+          alt={article.cover_image_alt || article.title}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '/images/news-placeholder.png';
+          }}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface-card via-transparent to-transparent" />
+        <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-brand-red/90 backdrop-blur-sm text-white text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+          <Lightbulb className="w-3 h-3" /> Você Sabia?
         </div>
-      )}
+      </div>
 
       {/* Content */}
       <div className="flex flex-col gap-2 p-5 flex-1">

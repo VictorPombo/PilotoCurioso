@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 import { slugify, estimateReadingTime } from '@/lib/slugify';
 import { requireAuth, isAuthenticated } from '@/lib/api-auth';
+import { cleanImageUrl } from '@/utils/image';
 
 /** GET: List articles — public gets only published, admin gets all */
 export async function GET(req: NextRequest) {
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
       slug,
       brief: body.brief || null,
       body: body.body || null,
-      cover_image: body.cover_image || null,
+      cover_image: cleanImageUrl(body.cover_image) || '/images/news-placeholder.png',
       cover_image_alt: body.cover_image_alt || null,
       category_id: body.category_id || null,
       is_sponsored: body.is_sponsored || false,
