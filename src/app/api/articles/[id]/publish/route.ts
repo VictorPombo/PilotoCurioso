@@ -26,6 +26,17 @@ export async function POST(
       // Publish now
       update.status = 'published';
       update.published_at = new Date().toISOString();
+
+      // Garantir que artigo publicado nunca fique sem imagem de capa
+      const { data: currentArticle } = await sb
+        .from('articles')
+        .select('cover_image')
+        .eq('id', params.id)
+        .single();
+
+      if (!currentArticle?.cover_image) {
+        update.cover_image = '/images/news-placeholder.png';
+      }
     }
 
     const { data, error } = await sb
