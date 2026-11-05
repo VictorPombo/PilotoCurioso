@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { AIAssistantPanel } from '@/components/admin/AIAssistantPanel';
 import { CoverImageUploader } from '@/components/admin/CoverImageUploader';
+import { getSmartCoverImage } from '@/utils/image';
 
 interface SSEData {
   step?: number;
@@ -78,10 +79,14 @@ export default function EditArticlePage() {
           setTitle(data.title || '');
           setSlug(data.slug || '');
           setCategoryId(data.category_id || '');
+          setType(data.type === 'noticia' ? 'noticia' : 'curiosidade');
           setBrief(data.brief || '');
           setBody(data.body || '');
           setCoverImage(data.cover_image || '');
+          setIsSponsored(Boolean(data.is_sponsored));
+          setSponsorName(data.sponsor_name || '');
           setStatus(data.status || 'draft');
+          setScheduledAt(data.scheduled_at ? data.scheduled_at.slice(0, 16) : '');
           setSeoTitle(data.seo_title || '');
           setSeoDescription(data.seo_description || '');
           setTags(data.tags?.join(', ') || '');
@@ -203,10 +208,14 @@ export default function EditArticlePage() {
           title: title.trim(),
           slug: slug.trim(),
           category_id: categoryId || null,
+          type,
           brief: brief.trim(),
           body: body.trim(),
-          cover_image: coverImage.trim() || '/images/news-placeholder.png',
+          cover_image: coverImage.trim() || getSmartCoverImage(title, null),
+          is_sponsored: isSponsored,
+          sponsor_name: isSponsored ? sponsorName.trim() || null : null,
           status: statusInput,
+          scheduled_at: statusInput === 'scheduled' ? scheduledAt || null : null,
           seo_title: seoTitle.trim() || null,
           seo_description: seoDescription.trim() || null,
           tags: tagsArray.length > 0 ? tagsArray : null,
@@ -371,6 +380,7 @@ export default function EditArticlePage() {
         <CoverImageUploader
           value={coverImage}
           onChange={setCoverImage}
+          title={title}
           onStatusChange={(msg, msgType) => {
             setMessage(msg);
             setMessageType(msgType);
@@ -405,6 +415,11 @@ export default function EditArticlePage() {
           body={body}
           onApplyRefine={handleApplyRefine}
           onInsertImage={handleInsertInfographic}
+          onSetCoverImage={(url) => {
+            setCoverImage(url);
+            setMessage('Imagem gerada definida como capa da matéria!');
+            setMessageType('success');
+          }}
         />
 
         {/* Sponsored toggle */}

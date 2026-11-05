@@ -32,27 +32,30 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
 }
 
-/** Upload file to Supabase Storage and return public URL */
+/** Upload file via server-side API (service_role bypasses RLS and ensures bucket exists) */
 async function uploadToStorage(
   file: File,
   bucket: 'images' | 'videos'
 ): Promise<string> {
   const fileToUpload = bucket === 'images' ? await compressImage(file) : file;
-  const fileExt = fileToUpload.name.split('.').pop();
-  const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-  const filePath = `articles/${fileName}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(bucket)
-    .upload(filePath, fileToUpload, { upsert: true });
+  const formData = new FormData();
+  formData.append('file', fileToUpload);
+  formData.append('bucket', bucket);
+  formData.append('folder', 'articles');
 
-  if (uploadError) throw uploadError;
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(bucket).getPublicUrl(filePath);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.publicUrl) {
+    throw new Error(data.error || `Falha no upload (${res.status})`);
+  }
 
-  return publicUrl;
+  return data.publicUrl;
 }
 
 const MenuBar = ({ editor }: { editor: any }) => {

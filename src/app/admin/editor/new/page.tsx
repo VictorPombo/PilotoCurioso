@@ -5,6 +5,7 @@ import { Loader2, Sparkles, Save, Send, Calendar, CheckCircle, XCircle, AlertTri
 import { supabase } from '@/lib/supabase';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { CoverImageUploader } from '@/components/admin/CoverImageUploader';
+import { getSmartCoverImage } from '@/utils/image';
 
 interface SSEData {
   step?: number;
@@ -168,7 +169,7 @@ export default function NewArticlePage() {
           body,
           type,
           category_id: categoryId || null,
-          cover_image: coverImage.trim() || '/images/news-placeholder.png',
+          cover_image: coverImage.trim() || getSmartCoverImage(title, null),
           is_sponsored: isSponsored,
           sponsor_name: isSponsored ? sponsorName : null,
           seo_title: seoTitle || null,
@@ -316,6 +317,7 @@ export default function NewArticlePage() {
         <CoverImageUploader
           value={coverImage}
           onChange={setCoverImage}
+          title={title}
           onStatusChange={(msg, msgType) => {
             setMessage(msg);
             setMessageType(msgType);

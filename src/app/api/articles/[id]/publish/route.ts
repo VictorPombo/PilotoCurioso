@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 import { verifyToken } from '@/lib/auth';
+import { getSmartCoverImage } from '@/utils/image';
 
 /** POST: Publish or schedule an article */
 export async function POST(
@@ -30,12 +31,12 @@ export async function POST(
       // Garantir que artigo publicado nunca fique sem imagem de capa
       const { data: currentArticle } = await sb
         .from('articles')
-        .select('cover_image')
+        .select('title, cover_image')
         .eq('id', params.id)
         .single();
 
       if (!currentArticle?.cover_image) {
-        update.cover_image = '/images/news-placeholder.png';
+        update.cover_image = getSmartCoverImage(currentArticle?.title, null);
       }
     }
 

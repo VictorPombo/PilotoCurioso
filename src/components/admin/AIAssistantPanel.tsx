@@ -56,6 +56,7 @@ interface AIAssistantPanelProps {
   body: string;
   onApplyRefine: (data: RefineData) => void;
   onInsertImage: (url: string) => void;
+  onSetCoverImage?: (url: string) => void;
 }
 
 function ScoreGauge({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
@@ -125,6 +126,7 @@ export function AIAssistantPanel({
   body,
   onApplyRefine,
   onInsertImage,
+  onSetCoverImage,
 }: AIAssistantPanelProps) {
   const [expanded, setExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState<'score' | 'refine' | 'infographic'>('score');
@@ -504,7 +506,7 @@ export function AIAssistantPanel({
                       alt="Infográfico gerado"
                       className="w-full rounded-xl border border-white/10"
                     />
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => onInsertImage(infographicUrl)}
                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-xs uppercase tracking-wider transition-colors"
@@ -512,6 +514,15 @@ export function AIAssistantPanel({
                         <Check className="w-3.5 h-3.5" />
                         Inserir no corpo
                       </button>
+                      {onSetCoverImage && (
+                        <button
+                          onClick={() => onSetCoverImage(infographicUrl)}
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-red/10 hover:bg-brand-red/20 text-brand-red font-bold text-xs uppercase tracking-wider transition-colors"
+                        >
+                          <ImagePlus className="w-3.5 h-3.5" />
+                          Usar como Capa
+                        </button>
+                      )}
                       <button
                         onClick={handleGenerateInfographic}
                         disabled={infographicLoading}

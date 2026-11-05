@@ -40,8 +40,55 @@ CREATE TABLE IF NOT EXISTS public.articles (
   tags TEXT[],
   reading_time INTEGER,
   ia_generated BOOLEAN DEFAULT FALSE,
+  cta_enabled BOOLEAN DEFAULT FALSE,
+  cta_label TEXT,
+  cta_url TEXT,
+  cta_video_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Histórico de Refinamento e Infográficos por IA
+CREATE TABLE IF NOT EXISTS public.article_ai_history (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  article_id UUID REFERENCES public.articles(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  input_snapshot JSONB,
+  ai_response JSONB,
+  scores JSONB,
+  model_used TEXT,
+  tokens_used INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tabelas do Agregador de Notícias RSS
+CREATE TABLE IF NOT EXISTS public.dominios_bloqueados (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  dominio TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.noticias_agregadas (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  titulo TEXT NOT NULL,
+  og_image_url TEXT,
+  link_original TEXT NOT NULL UNIQUE,
+  portal_origem TEXT,
+  categoria TEXT,
+  og_description TEXT,
+  publicado_em TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.ingestao_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  portal_origem TEXT,
+  url_requisitada TEXT,
+  status_http INTEGER,
+  sucesso BOOLEAN DEFAULT TRUE,
+  quantidade_itens_novos INTEGER DEFAULT 0,
+  erro TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Newsletter

@@ -19,8 +19,9 @@ export function cleanImageUrl(url: string | null | undefined): string {
  * ou o placeholder oficial do Piloto Curioso caso não haja correspondência.
  */
 export function getSmartCoverImage(title?: string, coverImage?: string | null): string {
-  if (coverImage && coverImage.trim()) {
-    return getCoverImageUrl(coverImage);
+  const cleanedCover = coverImage ? coverImage.trim() : '';
+  if (cleanedCover && cleanedCover !== '/images/news-placeholder.png') {
+    return getCoverImageUrl(cleanedCover);
   }
   if (title) {
     const t = title.toLowerCase();

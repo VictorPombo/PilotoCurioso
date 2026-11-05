@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 import { verifyToken } from '@/lib/auth';
 import { estimateReadingTime } from '@/lib/slugify';
-import { cleanImageUrl } from '@/utils/image';
+import { cleanImageUrl, getSmartCoverImage } from '@/utils/image';
 
 /** GET: Get single article by ID */
 export async function GET(
@@ -41,7 +41,7 @@ export async function PUT(
 
     const allowedFields = [
       'title', 'slug', 'brief', 'body', 'cover_image', 'cover_image_alt',
-      'category_id', 'is_sponsored', 'sponsor_name', 'status', 'scheduled_at',
+      'category_id', 'type', 'is_sponsored', 'sponsor_name', 'status', 'scheduled_at',
       'seo_title', 'seo_description', 'og_image', 'tags', 'ia_generated',
       'cta_enabled', 'cta_label', 'cta_url', 'cta_video_url',
     ];
@@ -51,7 +51,9 @@ export async function PUT(
     }
 
     if (update.cover_image !== undefined) {
-      update.cover_image = cleanImageUrl(update.cover_image as string) || '/images/news-placeholder.png';
+      update.cover_image =
+        cleanImageUrl(update.cover_image as string) ||
+        getSmartCoverImage(body.title, null);
     }
 
     // Auto-calculate reading time
@@ -61,7 +63,7 @@ export async function PUT(
     if (body.status === 'published') {
       update.published_at = new Date().toISOString();
       if (!update.cover_image) {
-        update.cover_image = '/images/news-placeholder.png';
+        update.cover_image = getSmartCoverImage(body.title, null);
       }
     }
 

@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, FileText, Eye, Sparkles, Clock, CheckCircle, Send, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { getSmartCoverImage } from '@/utils/image';
 
 interface Article {
   id: string;
   title: string;
   slug: string;
   brief: string | null;
+  cover_image: string | null;
   status: string;
   type: string;
   views: number;
@@ -155,9 +157,20 @@ export default function EditorListPage() {
                 key={article.id}
                 className="flex items-center gap-4 p-4 rounded-xl bg-surface-card border border-white/5 hover:border-white/10 transition-colors group"
               >
-                {/* Status icon */}
-                <div className={`flex items-center justify-center w-10 h-10 rounded-lg shrink-0 ${statusCfg.color}`}>
-                  <StatusIcon className="w-5 h-5" />
+                {/* Thumbnail & Status */}
+                <div className="relative w-16 h-11 rounded-lg overflow-hidden bg-surface-3 shrink-0 border border-white/10">
+                  <img
+                    src={getSmartCoverImage(article.title, article.cover_image)}
+                    alt={article.title}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '/images/news-placeholder.png';
+                    }}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className={`absolute bottom-0.5 right-0.5 flex items-center justify-center w-4 h-4 rounded-full ${statusCfg.color} shadow`}>
+                    <StatusIcon className="w-2.5 h-2.5" />
+                  </div>
                 </div>
 
                 {/* Content */}

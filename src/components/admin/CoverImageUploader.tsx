@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { Upload, Loader2, Image as ImageIcon, X, Check, AlertTriangle, ExternalLink } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { compressImage, cleanImageUrl, getCoverImageUrl } from '@/utils/image';
+import { compressImage, cleanImageUrl, getCoverImageUrl, getSmartCoverImage } from '@/utils/image';
 
 const PRESET_BANNERS = [
   { label: 'Padrão Oficial', url: '/images/news-placeholder.png', icon: '🛡️' },
@@ -18,12 +17,14 @@ const PRESET_BANNERS = [
 interface CoverImageUploaderProps {
   value: string;
   onChange: (url: string) => void;
+  title?: string;
   onStatusChange?: (msg: string, type: 'success' | 'warning' | 'error') => void;
 }
 
 export function CoverImageUploader({
   value,
   onChange,
+  title,
   onStatusChange,
 }: CoverImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
@@ -41,34 +42,35 @@ export function CoverImageUploader({
       // 1. Otimiza no navegador (redimensiona para max 1920x1080 e comprime em JPEG/WebP)
       const compressed = await compressImage(file);
 
-      // 2. Upload para o Supabase Storage
-      const fileExt = compressed.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-      const filePath = `covers/${fileName}`;
+      // 2. Upload via API autenticada (service_role bypassa RLS e garante criação do bucket)
+      const formData = new FormData();
+      formData.append('file', compressed);
+      formData.append('bucket', 'images');
+      formData.append('folder', 'covers');
 
-      const { error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filePath, compressed, { upsert: true });
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
 
-      if (uploadError) {
-        throw uploadError;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.publicUrl) {
+        throw new Error(data.error || `Falha no upload (status ${res.status})`);
       }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(filePath);
-
-      onChange(publicUrl);
+      onChange(data.publicUrl);
       onStatusChange?.('Upload concluído com sucesso!', 'success');
     } catch (err: any) {
       console.error('Erro no upload de imagem:', err);
       const isNetwork = err?.message?.includes('fetch') || err?.name === 'TypeError';
       const msg = isNetwork
-        ? 'Erro ao conectar ao Supabase Storage. Verifique se o banco de dados está ativo ou cole a URL direta abaixo.'
+        ? 'Erro ao conectar ao Supabase Storage. Verifique se o banco de dados está ativo no painel do Supabase ou cole a URL direta abaixo.'
         : `Erro no upload: ${err.message || 'Falha ao processar arquivo.'}`;
       onStatusChange?.(msg, 'error');
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   }
 
@@ -78,7 +80,8 @@ export function CoverImageUploader({
     onChange(cleaned);
   }
 
-  const activeImage = value?.trim() || '/images/news-placeholder.png';
+  const smartDefault = getSmartCoverImage(title, null);
+  const activeImage = value?.trim() || smartDefault;
   const displaySrc = getCoverImageUrl(activeImage);
   const isCustomImage = Boolean(value && value.trim() && value !== '/images/news-placeholder.png');
 
@@ -210,7 +213,7 @@ export function CoverImageUploader({
         {/* Informações no rodapé do preview */}
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs text-zinc-300 pointer-events-none">
           <span className="truncate max-w-[70%] font-mono opacity-80">
-            {value ? value : 'Usando padrão: /images/news-placeholder.png'}
+            {value ? value : `Usando automático: ${smartDefault}`}
           </span>
           {isCustomImage && value.startsWith('http') && (
             <a
